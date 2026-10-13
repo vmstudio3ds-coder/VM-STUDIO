@@ -1,0 +1,240 @@
+<title>Grafo VM Studio</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: mapa em tela cheia à esquerda, painel de leitura à direita (empilha no celular). Grafite com prata, como o site. */
+:root{
+  --bg:#0d0e10; --panel:#141518; --line:#25272c; --fg:#e6e7ea; --mut:#8b8f98; --silver:#d4dae2; --hi:#f2c879;
+  --display:"Cormorant Garamond",Georgia,serif; --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f3f3f1;--panel:#fbfbfa;--line:#dcdcd8;--fg:#18191c;--mut:#666a72;--silver:#3d4450;--hi:#9a6a12;color-scheme:light}}
+:root[data-theme="light"]{--bg:#f3f3f1;--panel:#fbfbfa;--line:#dcdcd8;--fg:#18191c;--mut:#666a72;--silver:#3d4450;--hi:#9a6a12;color-scheme:light}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--sans);overflow:hidden}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 360px;height:100%}
+.map{position:relative;min-width:0;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.top{position:absolute;inset:0 0 auto 0;padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:baseline;pointer-events:none}
+.top h1{margin:0;font:500 28px/1 var(--display);letter-spacing:.01em;color:var(--silver)}
+.stats{font:12px var(--mono);color:var(--mut);font-variant-numeric:tabular-nums}
+.tools{position:absolute;left:16px;right:16px;bottom:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input[type=search]{flex:0 1 240px;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--fg);font:13px var(--sans);padding:8px 12px;border-radius:6px}
+input[type=search]:focus-visible,button:focus-visible{outline:2px solid var(--hi);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--mut);font:11px var(--mono);letter-spacing:.04em;padding:6px 10px;border-radius:99px;cursor:pointer}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--silver)}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:6px;font:12px var(--sans);max-width:260px;transform:translate(12px,12px)}
+.tip small{display:block;color:var(--mut);font:11px var(--mono)}
+aside{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding-block:20px;padding-inline:20px;min-width:0}
+aside h2{font:500 22px/1.15 var(--display);margin:0 0 4px;text-wrap:balance;color:var(--silver)}
+aside h3{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:22px 0 8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.kv dt{color:var(--mut)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.list button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:5px 6px;border-radius:5px;cursor:pointer;font-size:13px}
+.list button:hover,.list button:focus-visible{background:var(--line)}
+.list .n{font:11px var(--mono);color:var(--mut);font-variant-numeric:tabular-nums}
+.list .r{font:11px var(--mono);color:var(--mut);display:block}
+.dot{width:10px;height:10px;border-radius:50%}
+.back{all:unset;cursor:pointer;font:11px var(--mono);color:var(--mut);letter-spacing:.08em}
+.back:hover{color:var(--fg)}
+p.lead{color:var(--mut);margin:0}
+code{font:12px var(--mono)}
+@media (max-width:760px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:68vh auto;height:auto}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .top h1{font-size:24px}
+  .chips{display:none}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<div class="app">
+  <div class="map">
+    <canvas id="cv" aria-label="Mapa do grafo"></canvas>
+    <div class="top"><h1>Grafo VM Studio</h1><span class="stats" id="stats"></span></div>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Buscar nó (ex.: slideTo, #acervo, Miradouro)" aria-label="Buscar nó">
+      <div class="chips" id="kinds"></div>
+    </div>
+    <div class="tip" id="tip" hidden></div>
+  </div>
+  <aside id="side"></aside>
+</div>
+<script>
+const G = /*__GRAPH__*/null;
+const $ = (s) => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d'), side = $('#side'), tip = $('#tip');
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const PAL = ['#7aa2d6','#e3a35b','#8fc28a','#c98ad1','#d77272','#6cc3c0','#c9b458','#9a9de0','#e08fb0','#7fb0a0','#b89a7a','#a0a8b4'];
+const col = (n) => PAL[n.community % PAL.length];
+const byId = new Map(G.nodes.map((n) => [n.id, n]));
+const nb = new Map(G.nodes.map((n) => [n.id, []]));
+G.links.forEach((l) => { nb.get(l.source).push({ id: l.target, rel: l.rel, out: true }); nb.get(l.target).push({ id: l.source, rel: l.rel, out: false }); });
+const KINDS = [...new Set(G.nodes.map((n) => n.kind))];
+const on = new Set(KINDS);
+let sel = null, hov = null, focusComm = null, query = '';
+const LABEL_MIN = [...G.nodes].map((n) => n.degree).sort((a, b) => b - a)[22] || 1;
+const view = { x: 0, y: 0, k: 1 };
+const STRUCT = new Set(['define', 'contém', 'empacota', 'verifica']);
+const rad = (n) => (3 + Math.sqrt(n.weight) * 1.9) * Math.min(1.6, Math.max(0.7, view.k)) / view.k;
+
+$('#stats').textContent = `${G.nodes.length} nós · ${G.links.length} ligações · ${G.communities.length} comunidades`;
+KINDS.forEach((k) => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = k; b.setAttribute('aria-pressed', 'true');
+  b.onclick = () => { on.has(k) ? on.delete(k) : on.add(k); b.setAttribute('aria-pressed', on.has(k)); draw(); };
+  $('#kinds').append(b);
+});
+
+function fit() {
+  const r = cv.getBoundingClientRect(), q = (a, f) => a[Math.floor((a.length - 1) * f)];
+  const xs = G.nodes.map((n) => n.x).sort((a, b) => a - b), ys = G.nodes.map((n) => n.y).sort((a, b) => a - b);
+  const x0 = q(xs, 0.03), x1 = q(xs, 0.97), y0 = q(ys, 0.03), y1 = q(ys, 0.97);
+  const top = 92, bottom = r.width < 760 ? 70 : 110;
+  view.k = Math.min((r.width - 40) / (x1 - x0), (r.height - top - bottom) / (y1 - y0));
+  view.x = r.width / 2 - ((x0 + x1) / 2) * view.k;
+  view.y = top + (r.height - top - bottom) / 2 - ((y0 + y1) / 2) * view.k;
+}
+function size() {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  cv.width = r.width * d; cv.height = r.height * d; ctx.setTransform(d, 0, 0, d, 0, 0); draw();
+}
+const visible = (n) => on.has(n.kind);
+const match = (n) => query && (n.label.toLowerCase().includes(query) || (n.note || '').toLowerCase().includes(query));
+function lit(n) {
+  if (sel) return n.id === sel.id || nb.get(sel.id).some((x) => x.id === n.id);
+  if (focusComm !== null) return n.community === focusComm;
+  if (query) return match(n);
+  return true;
+}
+function draw() {
+  const r = cv.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  ctx.save(); ctx.translate(view.x, view.y); ctx.scale(view.k, view.k);
+  const dim = sel || focusComm !== null || query;
+  for (const l of G.links) {
+    const a = byId.get(l.source), b = byId.get(l.target);
+    if (!visible(a) || !visible(b)) continue;
+    const hot = sel && (l.source === sel.id || l.target === sel.id);
+    if (STRUCT.has(l.rel) && !hot) continue;
+    ctx.globalAlpha = hot ? 0.9 : dim ? 0.05 : 0.18;
+    ctx.strokeStyle = hot ? css('--hi') : css('--mut');
+    ctx.lineWidth = (hot ? 1.4 : 0.7) / Math.sqrt(view.k);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  for (const n of G.nodes) {
+    if (!visible(n)) continue;
+    const L = lit(n), r0 = rad(n);
+    ctx.globalAlpha = L ? 1 : 0.12;
+    ctx.fillStyle = col(n);
+    ctx.beginPath();
+    if (n.kind === 'arquivo' || n.kind === 'ferramenta' || n.kind === 'teste' || n.kind === 'saída') ctx.rect(n.x - r0, n.y - r0, r0 * 2, r0 * 2);
+    else if (n.kind === 'elemento' || n.kind === 'categoria') { ctx.moveTo(n.x, n.y - r0 * 1.2); ctx.lineTo(n.x + r0 * 1.2, n.y); ctx.lineTo(n.x, n.y + r0 * 1.2); ctx.lineTo(n.x - r0 * 1.2, n.y); ctx.closePath(); }
+    else ctx.arc(n.x, n.y, r0, 0, 7);
+    ctx.fill();
+    if (n === sel || n === hov || match(n)) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = css('--hi'); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1; ctx.fillStyle = css('--fg'); ctx.textAlign = 'center';
+  const fs = 11 / view.k; ctx.font = `${fs}px ${css('--sans')}`;
+  for (const n of G.nodes) {
+    if (!visible(n)) continue;
+    const show = n === sel || n === hov || match(n) || (sel && lit(n)) || (!dim && n.degree >= LABEL_MIN / Math.max(0.5, view.k)) || (focusComm === n.community && n.degree > 3);
+    if (!show) continue;
+    ctx.globalAlpha = lit(n) ? 0.95 : 0.3;
+    ctx.fillText(n.label.length > 34 ? n.label.slice(0, 33) + '…' : n.label, n.x, n.y + rad(n) + fs * 1.15);
+  }
+  ctx.restore();
+}
+const pick = (mx, my) => {
+  const x = (mx - view.x) / view.k, y = (my - view.y) / view.k;
+  let best = null, bd = 1e9;
+  for (const n of G.nodes) {
+    if (!visible(n)) continue;
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < rad(n) + 6 / view.k && d < bd) { bd = d; best = n; }
+  }
+  return best;
+};
+
+// Pan, zoom e toque
+let drag = null, moved = false;
+const pts = new Map();
+cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY }); drag = { x: e.offsetX, y: e.offsetY, vx: view.x, vy: view.y }; moved = false; cv.classList.add('drag'); });
+cv.addEventListener('pointermove', (e) => {
+  if (pts.has(e.pointerId) && pts.size === 2) {
+    const [a, b] = [...pts.values()], d0 = Math.hypot(a.x - b.x, a.y - b.y);
+    pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    const [c, d] = [...pts.values()], d1 = Math.hypot(c.x - d.x, c.y - d.y);
+    zoom((a.x + b.x) / 2, (a.y + b.y) / 2, d1 / (d0 || 1)); moved = true; return;
+  }
+  if (drag && pts.has(e.pointerId)) {
+    const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+    view.x = drag.vx + dx; view.y = drag.vy + dy; draw(); return;
+  }
+  const n = pick(e.offsetX, e.offsetY);
+  if (n !== hov) { hov = n; draw(); }
+  if (n) { tip.hidden = false; tip.style.left = e.offsetX + 'px'; tip.style.top = e.offsetY + 'px'; tip.innerHTML = `${esc(n.label)}<small>${esc(n.kind)} · ${n.degree} ligações</small>`; }
+  else tip.hidden = true;
+});
+const up = (e) => {
+  pts.delete(e.pointerId); cv.classList.remove('drag');
+  if (!moved && e.type === 'pointerup') { const n = pick(e.offsetX, e.offsetY); select(n); }
+  drag = null;
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', () => { tip.hidden = true; if (hov) { hov = null; draw(); } });
+function zoom(mx, my, f) {
+  const k = Math.min(8, Math.max(0.15, view.k * f)); f = k / view.k;
+  view.x = mx - (mx - view.x) * f; view.y = my - (my - view.y) * f; view.k = k; draw();
+}
+cv.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.offsetX, e.offsetY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+$('#q').addEventListener('input', (e) => {
+  query = e.target.value.trim().toLowerCase(); focusComm = null;
+  const hits = query ? G.nodes.filter(match) : [];
+  if (hits.length === 1) select(hits[0]); else { sel = null; overview(); draw(); }
+});
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const row = (n, extra) => `<li><button data-id="${esc(n.id)}"><span class="dot" style="background:${col(n)}"></span><span>${esc(n.label)}<span class="r">${esc(extra || n.kind)}</span></span><span class="n">${n.degree}</span></button></li>`;
+
+function overview() {
+  const top = [...G.nodes].filter((n) => !['arquivo', 'externo'].includes(n.kind)).sort((a, b) => b.degree - a.degree).slice(0, 8);
+  const comms = G.communities.filter((c) => c.size > 1);
+  side.innerHTML = `<h2>Como o site se conecta</h2>
+  <p class="lead">Cada ponto é uma parte do código, da página ou do conteúdo; cada linha é uma ligação real entre eles. Clique para ver os vizinhos.</p>
+  <h3>Mais conectados</h3><ul class="list">${top.map((n) => row(n, n.file ? n.file.replace('src/', '') + (n.line ? ':' + n.line : '') : n.kind)).join('')}</ul>
+  <h3>Comunidades</h3><ul class="list">${comms.map((c) => `<li><button data-c="${c.id}"><span class="dot" style="background:${PAL[c.id % PAL.length]}"></span><span>${esc(c.name)}<span class="r">${esc(c.hubs.slice(0, 3).join(' · '))}</span></span><span class="n">${c.size}</span></button></li>`).join('')}</ul>
+  <h3>Formas</h3><dl class="kv"><dt>■</dt><dd>arquivo, ferramenta ou teste</dd><dt>◆</dt><dd>elemento da página ou categoria</dd><dt>●</dt><dd>símbolo do código, projeto ou evento</dd></dl>
+  <h3>Gerado</h3><p class="lead"><code>npm run graph</code> · ${esc(G.generated)}</p>`;
+}
+function select(n) {
+  sel = n || null; focusComm = null;
+  if (!n) { overview(); draw(); return; }
+  const groups = {};
+  nb.get(n.id).forEach((x) => { const k = (x.out ? '→ ' : '← ') + x.rel; (groups[k] = groups[k] || []).push(byId.get(x.id)); });
+  const info = [['tipo', n.kind], ['arquivo', n.file ? n.file + (n.line ? ':' + n.line : '') : null], ['seção', n.section], ['nota', n.note], ['categoria', n.cat], ['mídia', n.media], ['three.js', n.three && n.three.join(', ')], ['comunidade', G.communities[n.community].name]].filter((x) => x[1]);
+  side.innerHTML = `<button class="back" id="back">← visão geral</button><h2>${esc(n.label)}</h2>
+  <dl class="kv">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+  ${Object.entries(groups).map(([k, list]) => `<h3>${esc(k)} (${list.length})</h3><ul class="list">${list.sort((a, b) => b.degree - a.degree).map((m) => row(m)).join('')}</ul>`).join('')}`;
+  $('#back').onclick = () => select(null);
+  draw();
+}
+side.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-id],button[data-c]');
+  if (!b) return;
+  if (b.dataset.id) { const n = byId.get(b.dataset.id); select(n); const r = cv.getBoundingClientRect(); view.x = r.width / 2 - n.x * view.k; view.y = r.height / 2 - n.y * view.k; draw(); }
+  else { sel = null; focusComm = focusComm === +b.dataset.c ? null : +b.dataset.c; draw(); }
+});
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#q').value = ''; query = ''; select(null); } });
+addEventListener('resize', size);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+overview();
+requestAnimationFrame(() => { fit(); size(); });
+</script>
