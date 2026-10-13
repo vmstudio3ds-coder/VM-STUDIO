@@ -35,3 +35,11 @@ test('build gera um HTML único, com CSS, script e imagens embutidos', () => {
   assert.equal((html.match(/<script>/g) || []).length, 1);
   assert.ok(html.length < 16 * 1024 * 1024, 'limite de 16 MB do artifact');
 });
+
+test('versão para Cloudflare: troca /_blob/<id> por media/<arquivo> e acusa faltantes', async () => {
+  const { rewriteBlobs } = await import('../../scripts/build-pages.mjs');
+  const a = 'a'.repeat(32), b = 'b'.repeat(32);
+  const r = rewriteBlobs(`src="/_blob/${a}" x='/_blob/${b}'`, new Map([[a, a + '.mp4']]));
+  assert.equal(r.html, `src="media/${a}.mp4" x='/_blob/${b}'`);
+  assert.deepEqual(r.missing, [b]);
+});
