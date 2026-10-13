@@ -1,0 +1,10 @@
+{
+  "name": "vm-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portfólio imersivo da VM Studio (Vitor Milagres).",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}
