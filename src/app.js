@@ -1,16 +1,22 @@
 import {P,A,LOGO} from './data/projects.js';
-const $=s=>document.querySelector(s),clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),root=document.documentElement;
+import {clamp,easeIO} from './lib/math.js';
+import {fmtT,galCounter} from './lib/format.js';
+import {CATS,sortAcervo} from './lib/acervo.js';
+import {filmTotal,partOffset,partAt} from './lib/film.js';
+import {pathLayout,snapY,nearestIndex,orbitSquash,screenFit,titleFit} from './lib/layout.js';
+const $=s=>document.querySelector(s),root=document.documentElement;
 
 /* ===== CENA ===== */
 const cv=$('#gl'),R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,1.75));
 const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(50,1,.1,200);scene.background=new THREE.Color(0x0a0a0c);scene.fog=new THREE.FogExp2(0x0a0a0c,.045);const keyL=new THREE.PointLight(0xffffff,1.8,40,1);scene.add(keyL,new THREE.AmbientLight(0x3a3d42,.9));
 P.forEach(p=>{p.ar=p.ar||(/^Porto/.test(p.t)?.8:16/9)});const PM=P.filter(p=>p.gal||p.v);
-const PORT=innerWidth<innerHeight,N=PM.length,SPY=PORT?3.2:1.9,ANG=.7,RAD=3.9,S0=PORT?-.62:-1.1,S1=N-1+.55,TY=(S1-S0)*SPY,glow=new THREE.Color(0xffb86b),PR=R.getPixelRatio();
+const PORT=innerWidth<innerHeight,N=PM.length,{SPY,S0,S1,TY}=pathLayout(PORT,N),RAD=3.9,glow=new THREE.Color(0xffb86b),PR=R.getPixelRatio();
 const rt=new THREE.WebGLRenderTarget(256,144,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter}),RES=new THREE.Vector2(),RTS=[];
 const sz=()=>{R.setSize(innerWidth,innerHeight,false);RES.set(innerWidth*PR,innerHeight*PR);rt.setSize(Math.ceil(innerWidth/4),Math.ceil(innerHeight/4));RTS.forEach(r=>r.setSize(Math.ceil(innerWidth/4),Math.ceil(innerHeight/4)));cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};sz();addEventListener('resize',sz);
 
 /* Nuvem de pontos da logo + halo (reage ao mouse, dispersa com o scroll) */
 const U={uT:{value:0},uD:{value:0},uM:{value:new THREE.Vector2(9,9)},uPr:{value:PR},uC:{value:glow}};
+/** @type {any} */
 let logoPts=null;
 const lg=new Image();lg.src=LOGO;const logoReady=new Promise(r=>lg.onload=()=>{
  const S=700,c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');x.imageSmoothingQuality='high';x.fillStyle='#fff';x.fillRect(0,0,S,S);x.drawImage(lg,0,0,S,S);
@@ -57,7 +63,7 @@ PM.forEach((p,i)=>{
  const tc=document.createElement('canvas');tc.width=1400;tc.height=260;const tt=new THREE.CanvasTexture(tc),tmat=new THREE.MeshBasicMaterial({map:tt,transparent:true,depthWrite:false,fog:false,toneMapped:false,opacity:0}),tm=new THREE.Mesh(new THREE.PlaneGeometry(6.8,1.26),tmat);
  tm.position.set(0,-h/2-.8,.5);tm.scale.setScalar(1.0);
  const grp=new THREE.Group();grp.add(mesh,tm);grp.visible=false;scene.add(grp);
- const n={p,i,w,h,cv:cvn,tx,mat,mesh,tc,tt,tm,tmat,grp,op:0,h:0,ld:0,rd:0,has:0};n.h=0;mesh.userData.n=n;PN.push(n);drawTag(n)});
+ const n={p,i,w,cv:cvn,tx,mat,mesh,tc,tt,tm,tmat,grp,op:0,h:0,ld:0,rd:0,has:0};n.h=0;mesh.userData.n=n;PN.push(n);drawTag(n)});
 function drawTag(n){const c=n.tc,x=c.getContext('2d'),W=c.width,p=n.p,M=PORT,k=M?1.55:1;x.clearRect(0,0,W,c.height);x.textAlign='center';x.fillStyle='#fff';
  x.letterSpacing=(M?5:7)+'px';x.font=`400 ${Math.round(20*k)}px Inter,sans-serif`;x.globalAlpha=M?.85:.7;x.fillText(String(n.i+1).padStart(2,'0')+'  —  '+p.c.toUpperCase(),W/2,Math.round(46*(M?1.15:1)));
  x.globalAlpha=1;let fs=M?104:84;x.letterSpacing='3px';x.font=`300 ${fs}px "Cormorant Garamond",Georgia,serif`;while(x.measureText(p.t).width>W-60&&fs>40){fs-=4;x.font=`300 ${fs}px "Cormorant Garamond",Georgia,serif`}
@@ -80,14 +86,13 @@ function setVid(v,u,play){v.playsInline=true;v.setAttribute('playsinline','');v.
  if(COARSE){v.addEventListener('error',fb,{once:true});setTimeout(()=>{if(!ok&&v.readyState<2)fb()},3500)}}
 function load(n){n.ld=1;if(n.p.gal){n.k=0;n.pk=0;n.f=1;n.gal=n.p.gal.map(()=>null);gimg(n,0);gimg(n,1)}if(n.p.v&&!n.p.gal){const v=document.createElement('video');v.muted=v.loop=v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';setVid(v,(n.p.vm&&COARSE)?n.p.vm:n.p.v,false);n.vd=v;v.addEventListener('loadeddata',()=>paint(n));if(n.p.poster){const im=new Image();im.onload=()=>paint(n);im.src=n.p.poster;n.pst=im}}}
 
-/* Ciclo solar: alvorada → meio-dia → crepúsculo → noite */
-const ST=[[0,'#0a0a0c','#ffb36a'],[.2,'#15110d','#ffb561'],[.5,'#26292d','#f3efe6'],[.76,'#14110e','#ff9d55'],[1,'#080b12','#a8b9d1']],tmp=new THREE.Color(),tmp2=new THREE.Color();
+/* Fundo grafite fixo e sol prateado (o antigo ciclo solar foi desligado) */
 function cyc(p){scene.background.set(0x0a0a0c);glow.set(0xd4dae2)}
 const LBL=['Alvorada','Meio-dia','Crepúsculo','Noite'];
 
 /* ===== LOOP ===== */
-const acvS=$('#acervo'),sp=$('#sp'),ray=new THREE.Raycaster(),m2=new THREE.Vector2(),hud=$('#hud'),cue=$('#cue'),ecp=$('#endcap'),flE=$('#flash');
-const ecH=ecp.querySelector('h2'),ecS=ecp.querySelector('small'),ecI=ecp.querySelector('i'),acH=document.querySelector('#acervo h2');ecH.innerHTML='<span>Acervo</span>';acH.innerHTML='<span>Acervo</span>';const ecSp=ecH.firstChild,acSp=acH.firstChild,acF=$('#filters'),acG=$('#grid');
+const acvS=$('#acervo'),sp=$('#sp'),ray=new THREE.Raycaster(),m2=new THREE.Vector2(),hud=$('#hud'),cue=$('#cue'),ecp=$('#endcap');
+ecp.querySelector('h2').innerHTML='<span>Acervo</span>';$('#acervo h2').innerHTML='<span>Acervo</span>';
 let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=false,cx=-99,cy=-99,rx=0,ry=0;
 (function frame(){requestAnimationFrame(frame);const _n=performance.now(),dt=Math.min(.05,(_n-(window._lt||_n))/1000);window._lt=_n;t+=dt;
  cur+=(scrollY-cur)*(1-Math.exp(-dt*4.5));const vel=cur-prev;prev=cur;const p=clamp(cur/(sp.offsetHeight-innerHeight));
@@ -114,9 +119,9 @@ let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=f
   n.hh=(n.hh||0)+((n===hv?1:0)-(n.hh||0))*(1-Math.exp(-dt*9));
   const foc=Math.exp(-u*u*1.6),R=RAD-foc*.4+n.hh*.4-end*2.4,g=n.grp;
   n.op=clamp((fc+.25)/.75)*clamp(1-(au-2.6)/1.2)*rev*(1-clamp(end/.12))*n.rd;
-  g.position.set(Math.sin(th)*R*(cam.aspect>=1?1:Math.max(.3,Math.pow(cam.aspect,1.2))),-(n.i-S0)*SPY,Math.cos(th)*R);
+  g.position.set(Math.sin(th)*R*orbitSquash(cam.aspect),-(n.i-S0)*SPY,Math.cos(th)*R);
   g.rotation.set(-u*.02-sy*.03*n.hh,clamp(th*.6,-.55,.55)+sx*.05*n.hh,Math.sin(th)*.02);
-  const vW=4.72*cam.aspect,wh=n.w/n.p.ar,mf=cam.aspect<1?Math.min(.95*vW/(n.w*.44*1.1),.8*SPY/(wh*.44*1.1)):Math.min(1,.86*vW/(n.w*.44*1.1)),gs=.44*(1+foc*.1)*(1-end*.3)*mf;g.scale.setScalar(gs);const tf=cam.aspect<1?.74*vW/(6.8*gs):Math.min(1,.9*vW/(6.8*gs));n.tm.scale.setScalar(tf);n.tm.position.y=-wh/2-.12/gs-.63*tf;g.visible=n.op>.01;
+  const wh=n.w/n.p.ar,mf=screenFit(cam.aspect,n.w,n.p.ar,SPY),gs=.44*(1+foc*.1)*(1-end*.3)*mf;g.scale.setScalar(gs);const tf=titleFit(cam.aspect,gs);n.tm.scale.setScalar(tf);n.tm.position.y=-wh/2-.12/gs-.63*tf;g.visible=n.op>.01;
   n.mat.uniforms.uOp.value=n.op;n.mat.uniforms.uH.value=n.hh;n.mesh.scale.setScalar(1+.035*n.hh);
   n.tmat.opacity=n.op*(PORT?1:.7+.3*n.hh);n.tm.position.z=.5+.25*n.hh;
   if(au<bd){bd=au;best=n.i}});
@@ -127,13 +132,12 @@ let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=f
 
 /* ===== SNAP: cada gesto = uma janela; da última: título e depois o Acervo ===== */
 let SA=null,lockT=0;
-const easeIO=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function slideTo(t,ms,done){if(SA)SA.stop=1;const y0=scrollY,dy=t-y0;if(Math.abs(dy)<2){done&&done();return}const a={stop:0},t0=performance.now();SA=a;
  (function st(n){if(a.stop)return;const k=Math.min(1,(n-t0)/ms);scrollTo(0,y0+dy*easeIO(k));if(k<1)requestAnimationFrame(st);else{SA=null;lockT=performance.now()+500;done&&done()}})(t0)}
 const SN=(()=>{let hold=0;
- const H=()=>sp.offsetHeight-innerHeight,yAt=sv=>(sv-S0)/(S1-S0)*H(),Ys=()=>PN.map(n=>yAt(n.i)),
+ const H=()=>sp.offsetHeight-innerHeight,yAt=sv=>snapY(sv,S0,S1,H()),Ys=()=>PN.map(n=>yAt(n.i)),
   tYf=()=>{const a=acvS.offsetTop,pL=(N-1-S0)/(S1-S0)+.008;return Math.min(a-innerHeight*1.06,(pL+.42*(1-pL))*H())},
-  idx=(Y,y)=>{let b=0,bd=1e9;Y.forEach((v,i)=>{const d=Math.abs(v-y);if(d<bd){bd=d;b=i}});return b};
+  idx=nearestIndex;
  const toAcervo=()=>{const a=acvS.offsetTop,tY=tYf();clearTimeout(hold);if(scrollY<tY-4)slideTo(tY,1100,()=>{hold=setTimeout(()=>slideTo(a,1300),1500)});else slideTo(a,1300)};
  const step=dir=>{clearTimeout(hold);const Y=Ys(),n=Y.length-1,y=scrollY,a=acvS.offsetTop;
   if(y<Y[0]-2){if(dir>0&&y>Y[0]*.5){slideTo(Y[0],800);return true}return false}
@@ -168,26 +172,24 @@ if(TOUCH){const box=document.createElement('div');box.id='snaps';document.body.a
  },160)},{passive:true})})();
 /* ===== INTERAÇÃO ===== */
 addEventListener('pointerdown',e=>{ptr=true;mx=e.clientX/innerWidth*2-1;my=e.clientY/innerHeight*2-1});
-['pointerup','pointercancel'].forEach(ev=>addEventListener(ev,e=>{if(e.pointerType!=='mouse'){ptr=false;mx=my=0}}));
+['pointerup','pointercancel'].forEach(ev=>addEventListener(ev,(/** @type {PointerEvent} */ e)=>{if(e.pointerType!=='mouse'){ptr=false;mx=my=0}}));
 document.addEventListener('pointerleave',()=>ptr=false);
 addEventListener('pointermove',e=>{ptr=true;mx=e.clientX/innerWidth*2-1;my=e.clientY/innerHeight*2-1;cx=e.clientX;cy=e.clientY;onCv=e.target===cv;
- const big=!!(hv||e.target.closest('a,button,.t,#lb'));$('#cr').classList.toggle('big',big);$('#cl').textContent=e.target.closest('#lb')?'Fechar':(hv||e.target.closest('.t'))?'Abrir':''});
+ const tg=/** @type {Element} */(e.target),big=!!(hv||tg.closest('a,button,.t,#lb'));$('#cr').classList.toggle('big',big);$('#cl').textContent=tg.closest('#lb')?'Fechar':(hv||tg.closest('.t'))?'Abrir':''});
 addEventListener('click',e=>{if(e.target!==cv||open)return;let h=hv;if(!h){m2.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1));ray.setFromCamera(m2,cam);const hit=ray.intersectObjects(PN.filter(n=>n.op>.5).map(n=>n.mesh))[0];if(hit)h=hit.object.userData.n}if(h)openLB(h.p)});
 (()=>{let x0=null,y0=0;const lb=$('#lb');lb.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY},{passive:true});lb.addEventListener('touchend',e=>{if(x0===null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.3){const d=dx<0?1:-1;if(gp)showG(gi+d)}},{passive:true})})();
 let gi=0,gp=null,fi=0,fp=null;const LBC=new Map();function lbImg(u){let im=LBC.get(u);if(!im){im=new Image();im.decoding='async';im.src=u;im._r=(im.decode?im.decode():new Promise(r=>{im.onload=r})).catch(()=>{});LBC.set(u,im)}return im}
 function lbWarm(p,i){const g=p.gal,n=g.length;[1,2,-1,3].forEach(d=>lbImg(g[(i+d+n)%n]));if(!p._wq){p._wq=1;let k=0;const nx=()=>{if(k>=n||gp!==p)return;lbImg(g[k++])._r.then(()=>setTimeout(nx,30))};setTimeout(nx,400)}}
 function showG(i){const p=gp;gi=(i+p.gal.length)%p.gal.length;const j=gi,im=lbImg(p.gal[j]),box=$('#lbm .media');
- $('#gc').textContent=String(gi+1).padStart(2,'0')+' / '+String(p.gal.length).padStart(2,'0');
+ $('#gc').textContent=galCounter(gi,p.gal.length);
  const put=()=>{if(gp!==p||gi!==j||!box)return;im.alt=p.t;const cur=box.querySelector('img');if(cur!==im){cur?cur.replaceWith(im):box.append(im);im.animate([{opacity:.35},{opacity:1}],{duration:260,easing:'ease-out'})}box.classList.remove('ld')};
  if(im.complete&&im.naturalWidth)put();else{box&&box.classList.add('ld');im._r.then(put)}lbWarm(p,j)}
-function showF(i){fi=(i+fp.vfs.length)%fp.vfs.length;const v=$('#lbm video');if(v)setVid(v,fp.vfs[fi],true);$('#gc').textContent='Parte '+(fi+1)+' / '+fp.vfs.length;if(fp.vfs[fi+1]){if(COARSE)vblob(fp.vfs[fi+1]).catch(()=>{});else fetch(fp.vfs[fi+1]).catch(()=>{})}}
 /* ===== player de filme: uma barra só para o filme inteiro ===== */
-const fmtT=t=>{t=Math.max(0,Math.floor(t));return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')};
 const IC={play:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7 5l12 7-12 7z" fill="currentColor"/></svg>',pause:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>',
  vol:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>',
  mute:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" stroke="currentColor" stroke-width="1.5"/></svg>',
  fs:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'};
-function filmUI(v,p){const box=v.parentNode,D=p.durs||p.vfs.map(()=>0),T=D.reduce((a,b)=>a+b,0),off=i=>D.slice(0,i).reduce((a,b)=>a+b,0);
+function filmUI(v,p){const box=v.parentNode,D=p.durs||p.vfs.map(()=>0),T=filmTotal(D),off=i=>partOffset(D,i);
  box.classList.add('film');v.controls=false;
  box.insertAdjacentHTML('beforeend',`<div class="fc"><button class="fc-pp" aria-label="Play ou pausa">${IC.pause}</button><span class="fc-t">00:00 / ${fmtT(T)}</span><div class="fc-bar"><i></i></div><button class="fc-mu" aria-label="Som">${IC.vol}</button><button class="fc-fs" aria-label="Tela cheia">${IC.fs}</button></div>`);
  const fc=box.querySelector('.fc'),pp=fc.querySelector('.fc-pp'),tt=fc.querySelector('.fc-t'),bar=fc.querySelector('.fc-bar'),fill=bar.querySelector('i'),mu=fc.querySelector('.fc-mu');let idle=0;
@@ -198,7 +200,7 @@ function filmUI(v,p){const box=v.parentNode,D=p.durs||p.vfs.map(()=>0),T=D.reduc
  pp.onclick=e=>{e.stopPropagation();tog()};v.addEventListener('click',e=>{e.stopPropagation();tog()});
  mu.onclick=e=>{e.stopPropagation();v.muted=!v.muted;wake()};
  fc.querySelector('.fc-fs').onclick=e=>{e.stopPropagation();if(document.fullscreenElement)document.exitFullscreen();else if(box.requestFullscreen)box.requestFullscreen().catch(()=>{});else if(v.webkitEnterFullscreen)v.webkitEnterFullscreen()};
- const seek=x=>{const r=bar.getBoundingClientRect(),t=Math.max(0,Math.min(T-.05,(x-r.left)/r.width*T));let i=0;while(i<D.length-1&&t>=off(i+1))i++;const lt=t-off(i),wasP=!v.paused;
+ const seek=x=>{const r=bar.getBoundingClientRect(),t=Math.max(0,Math.min(T-.05,(x-r.left)/r.width*T)),{i,lt}=partAt(D,t),wasP=!v.paused;
   if(i===fi){v.currentTime=lt;return}
   fi=i;const u=p.vfs[i],pr=VBL.get(u),go=src=>{if(fp!==p)return;v._want=u;v.src=src;v.addEventListener('loadedmetadata',()=>{v.currentTime=lt;if(wasP)v.play().catch(()=>{})},{once:true})};
   if(pr)pr.then(go,()=>go(u));else go(u);if(p.vfs[i+1])vblob(p.vfs[i+1]).catch(()=>{})};
@@ -217,16 +219,16 @@ function openLB(p){gp=p.gal?p:null;fp=p.vfs?p:null;fi=0;const m=document.createE
  $('#lbm').animate([{transform:'scale(.86)',opacity:0},{transform:'none',opacity:1}],{duration:700,easing:'cubic-bezier(.2,.8,.2,1)'})}
 const closeLB=()=>{root.classList.remove('lbo');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});gp=null;fp=null;const lv=$('#lbm video');if(lv){lv.pause();lv.removeAttribute('src');lv.load()}['#gp','#gn','#gc'].forEach(q=>$(q).style.display='none');$('#lb').classList.remove('open');$('#lbm').replaceChildren();open=false};
 $('#lb').onclick=e=>{if(e.target.closest('.gb,#lbm video,.fc'))return;if(gp&&e.target.closest('#lbm')){showG(gi+1);return}closeLB()};$('#gp').onclick=()=>gp&&showG(gi-1);$('#gn').onclick=()=>gp&&showG(gi+1);addEventListener('keydown',e=>{if(!gp&&!fp)return;const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(d&&gp)showG(gi+d)});addEventListener('keydown',e=>e.key==='Escape'&&closeLB());
-const CO=['Filmes','Empreendimentos','Exteriores','Interiores'];const PRI=['Miradouro','Essenza da Mata','Espraiado','Porto Villa Residence','Santa Marta'],pr=t=>{const i=PRI.indexOf(t);return i<0?99:i};A.sort((x,y)=>CO.indexOf(x.c)-CO.indexOf(y.c)||pr(x.t)-pr(y.t));
-const cats=['Todos',...CO],grid=$('#grid'),flt=$('#filters');
-A.forEach(a=>{const t=document.createElement('div');t.className='t';t.dataset.c=a.c;t.style.setProperty('--ar',a.ar||16/9);const m=document.createElement('div');m.className='media';m.style.setProperty('--g',`linear-gradient(180deg,${a.g[0]},${a.g[1]} 58%,${a.g[2]})`);
+sortAcervo(A);
+const cats=CATS,grid=$('#grid'),flt=$('#filters');
+A.forEach(a=>{const t=document.createElement('div');t.className='t';t.dataset.c=a.c;t.style.setProperty('--ar',String(a.ar||16/9));const m=document.createElement('div');m.className='media';m.style.setProperty('--g',`linear-gradient(180deg,${a.g[0]},${a.g[1]} 58%,${a.g[2]})`);
  if(a.gal){m.style.background=`center/cover url(${a.gal[0]})`;m.classList.add('ph')}if(a.v&&!a.gal){const tv=document.createElement('video');tv.muted=tv.loop=tv.autoplay=true;tv.setAttribute('muted','');if(a.poster){tv.poster=a.poster;m.style.background=`center/cover url(${a.poster})`}m.append(tv);setVid(tv,(a.vm&&COARSE)?a.vm:a.v,true);m.classList.add('ph')}t.append(m);t.insertAdjacentHTML('beforeend',`<div class="tc"><h4>${a.t}</h4><span>${a.m}</span></div>`);t.onclick=()=>openLB(a);if(a.gal)t.addEventListener('pointerenter',()=>{lbImg(a.gal[0]);lbImg(a.gal[1%a.gal.length])},{once:true});grid.append(t)});
 const emp=document.createElement('p');emp.className='empty';emp.textContent='Novos projetos em breve';grid.after(emp);
 cats.forEach((c,i)=>{const b=document.createElement('button');b.textContent=c;if(!i)b.className='on';b.onclick=()=>{flt.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));let k=0;grid.querySelectorAll('.t').forEach(t=>{const h=!!i&&t.dataset.c!==c;t.classList.toggle('hide',h);if(!h)k++});emp.classList.toggle('show',!k)};flt.append(b)});
 
 const rio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target)}}),{threshold:.12});
 ['#acervo h2','.filters','.about h2','.about p','#contato p','.cta','.contacts','footer'].forEach(q=>document.querySelectorAll(q).forEach(e=>{e.classList.add('rv');rio.observe(e)}));
-document.querySelectorAll('.t').forEach((e,k)=>{e.classList.add('rv');e.style.setProperty('--d',(k%4)*.09+'s');rio.observe(e)});
+document.querySelectorAll('.t').forEach((/** @type {HTMLElement} */ e,k)=>{e.classList.add('rv');e.style.setProperty('--d',(k%4)*.09+'s');rio.observe(e)});
 
 /* ===== PRELOADER ===== */
 const t0=performance.now();let ok=0;logoReady.then(()=>ok=1);

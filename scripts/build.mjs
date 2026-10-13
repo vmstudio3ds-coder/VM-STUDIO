@@ -12,6 +12,11 @@ const SRC = join(ROOT, 'src');
 export const MODULES = [
   'data/galleries.js',
   'data/projects.js',
+  'lib/math.js',
+  'lib/format.js',
+  'lib/acervo.js',
+  'lib/film.js',
+  'lib/layout.js',
   'app.js',
 ];
 
