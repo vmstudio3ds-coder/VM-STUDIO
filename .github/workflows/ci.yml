@@ -1,0 +1,62 @@
+name: CI
+
+# Roda em todo push e em todo pull request. Com a proteção de branch ligada
+# (ver README), o merge na main só é liberado quando os 4 checks passam.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: package.json }
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: package.json }
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+
+  unit:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: package.json }
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:unit
+
+  e2e:
+    name: Testes E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: package.json }
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Guardar o site gerado
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-studio-site
+          path: dist/vm-studio.html
+          retention-days: 14

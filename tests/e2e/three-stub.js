@@ -1,0 +1,3 @@
+// Substituto mínimo do three.js para os testes E2E (sem WebGL/CDN): aceita qualquer chamada.
+(function(){function mk(b){b=b||function(){};return new Proxy(b,{get:(t,k)=>{if(k===Symbol.toPrimitive)return()=>0;if(k==='then')return undefined;if(k in t)return t[k];if(k==='length')return 0;return mk()},set:(t,k,v)=>{t[k]=v;return true},apply:()=>mk(),construct:()=>mk()})}
+window.THREE=new Proxy({},{get:(t,k)=>{if(['Mesh','Points','Sprite','LineSegments'].includes(k))return function(g,m){const o=mk();o.material=m||mk();o.geometry=g;return o};if(['ShaderMaterial','MeshBasicMaterial','SpriteMaterial'].includes(k))return function(o){const m=mk();m.uniforms=(o&&o.uniforms)||{};return m};return function(){return mk()}}});})();
