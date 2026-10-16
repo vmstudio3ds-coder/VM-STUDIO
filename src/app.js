@@ -15,7 +15,8 @@ const rt=new THREE.WebGLRenderTarget(256,144,{minFilter:THREE.LinearFilter,magFi
 const sz=()=>{R.setSize(innerWidth,innerHeight,false);RES.set(innerWidth*PR,innerHeight*PR);rt.setSize(Math.ceil(innerWidth/4),Math.ceil(innerHeight/4));RTS.forEach(r=>r.setSize(Math.ceil(innerWidth/4),Math.ceil(innerHeight/4)));cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};sz();addEventListener('resize',sz);
 
 /* Nuvem de pontos da logo + halo (reage ao mouse, dispersa com o scroll) */
-const U={uT:{value:0},uD:{value:0},uM:{value:new THREE.Vector2(9,9)},uPr:{value:PR},uC:{value:glow}};
+/* uK: fração de pontos da logo mantida; cai quando a logo encolhe (celular) para a densidade na tela ficar igual à do PC */
+const U={uT:{value:0},uD:{value:0},uM:{value:new THREE.Vector2(9,9)},uPr:{value:PR},uC:{value:glow},uK:{value:1}};
 /** @type {any} */
 let logoPts=null;
 const lg=new Image();lg.src=LOGO;const logoReady=new Promise(r=>lg.onload=()=>{
@@ -26,10 +27,10 @@ const lg=new Image();lg.src=LOGO;const logoReady=new Promise(r=>lg.onload=()=>{
  for(let q=0;q<2200;q++){const a=Math.random()*6.283,b=Math.acos(2*Math.random()-1),r=2.8+Math.random()*5;add(r*Math.sin(b)*Math.cos(a),r*Math.sin(b)*Math.sin(a)*.8,r*Math.cos(b)*.7,0)}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('aR',new THREE.Float32BufferAttribute(rr,3));g.setAttribute('aS',new THREE.Float32BufferAttribute(ss,1));g.setAttribute('aB',new THREE.Float32BufferAttribute(bb,1));
  logoPts=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  vertexShader:`uniform float uT,uD,uPr;uniform vec2 uM;attribute vec3 aR;attribute float aS,aB;varying float vA;
+  vertexShader:`uniform float uT,uD,uPr,uK;uniform vec2 uM;attribute vec3 aR;attribute float aS,aB;varying float vA;
   void main(){vec3 p=position+aR*.008*sin(uT*.8+aR.x*20.);vec2 d=p.xy-uM;float rr=length(d)*(.7+.6*fract(aS*37.1))+(fract(aR.x*91.7)-.5)*.4;float f=1.-smoothstep(.2,1.15,rr);vec3 dir=normalize(aR+.4*vec3(sin(uT*.7+aS*31.),cos(uT*.6+aR.z*23.),sin(uT*.5+aR.y*17.))+1e-4);p+=dir*f*(.7+fract(aS*13.7)*.8);p.z+=f*aR.z*.4;
   p+=aR*uD*(3.+aS*9.);p.z+=uD*aS*7.;vec4 mv=modelViewMatrix*vec4(p,1.);float h=step(aB,.001);float tw=1.+.7*step(.9,aS)*sin(uT*2.5+aR.y*40.);
-  vA=(1.-uD*.5)*pow(1.-f,1.6)*mix(.35+.65*aB,.5,h)*tw;gl_PointSize=(aS*.7+.55)*mix(1.,2.6,h)*uPr*(14./-mv.z);gl_Position=projectionMatrix*mv;}`,
+  vA=(1.-uD*.5)*pow(1.-f,1.6)*mix(.35+.65*aB,.5,h)*tw;gl_PointSize=(aS*.7+.55)*mix(1.,2.6,h)*uPr*(14./-mv.z)*max(h,step(fract(aS*53.3),uK));gl_Position=projectionMatrix*mv;}`,
   fragmentShader:`uniform vec3 uC;varying float vA;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(mix(vec3(1.),uC,.3),vA*smoothstep(.5,0.,d)*1.2);}`}));
  scene.add(logoPts);r()});
 
@@ -106,7 +107,7 @@ let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=f
  sCore.scale.setScalar(.5+I*.9);sCore.material.opacity=ax*(.4+.6*calm);sBloom.scale.setScalar(4+I*8);sBloom.material.opacity=.4*ax*(.4+I*.6)*calm;sStreak.scale.set(14+I*12,.5+I*.7,1);sStreak.material.opacity=0;sStreak.visible=false;
  hazeM.color.set(0xd4dae2);hazeM.opacity=.05*ax*(.5+I*.5)*calm;HZ.forEach(h=>{h.position.x=h.userData.x+Math.sin(t*.12+h.userData.ph)*.4;h.position.z=h.userData.z});
  keyL.color.copy(glow);keyL.intensity=1.2+I*2;keyL.position.set(2.6,camY+2.6,8);
- ray.setFromCamera(m2.set(mx,-my),cam);const o=ray.ray.origin,d=ray.ray.direction,k=-o.z/d.z;const ls=Math.min(1,.86*7.84*cam.aspect/5.6);if(logoPts)logoPts.scale.setScalar(ls);if(ptr)U.uM.value.set((o.x+d.x*k)/ls,(o.y+d.y*k)/ls);else U.uM.value.set(99,99);
+ ray.setFromCamera(m2.set(mx,-my),cam);const o=ray.ray.origin,d=ray.ray.direction,k=-o.z/d.z;const ls=Math.min(1,.86*7.84*cam.aspect/5.6);if(logoPts)logoPts.scale.setScalar(ls);U.uK.value=Math.min(1,ls*ls*1.15);if(ptr)U.uM.value.set((o.x+d.x*k)/ls,(o.y+d.y*k)/ls);else U.uM.value.set(99,99);
  hv=null;if(onCv&&!open&&p<.995){const hit=ray.intersectObjects(PN.filter(n=>n.op>.5).map(n=>n.mesh))[0];if(hit)hv=hit.object.userData.n}
  let best=0,bd=1e9;
  const rev=clamp((p-.015)/.05);
@@ -232,6 +233,6 @@ document.querySelectorAll('.t').forEach((/** @type {HTMLElement} */ e,k)=>{e.cla
 
 /* ===== PRELOADER ===== */
 const t0=performance.now();let ok=0;logoReady.then(()=>ok=1);
-(function L(){const n=Math.min(100,(performance.now()-t0)/16);$('#ln').textContent=String(n|0).padStart(3,'0');
+(function L(){const n=Math.min(100,(performance.now()-t0)/7);$('#ln').textContent=String(n|0).padStart(3,'0');
  if(n<100||!ok)requestAnimationFrame(L);else{$('#ld').classList.add('done');root.classList.remove('lock')}})();
 setTimeout(()=>{$('#ld').classList.add('done');root.classList.remove('lock')},4000);
