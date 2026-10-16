@@ -2,7 +2,7 @@
 export const CO = ['Filmes', 'Empreendimentos', 'Exteriores', 'Interiores'];
 
 /** Prioridade dentro de uma categoria (quem não está na lista vem depois, na ordem original). */
-export const PRI = ['Miradouro', 'Essenza da Mata', 'Espraiado', 'Porto Villa Residence', 'Santa Marta'];
+export const PRI = ['Miradouro', 'Essenza da Mata', 'Espraiado', 'Porto Villa Residence', 'Santa Julia'];
 
 /** Abas de filtro exibidas no Acervo. */
 export const CATS = ['Todos', ...CO];
