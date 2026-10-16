@@ -228,7 +228,7 @@ const emp=document.createElement('p');emp.className='empty';emp.textContent='Nov
 cats.forEach((c,i)=>{const b=document.createElement('button');b.textContent=c;if(!i)b.className='on';b.onclick=()=>{flt.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));let k=0;grid.querySelectorAll('.t').forEach(t=>{const h=!!i&&t.dataset.c!==c;t.classList.toggle('hide',h);if(!h)k++});emp.classList.toggle('show',!k)};flt.append(b)});
 
 const rio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rio.unobserve(e.target)}}),{threshold:.12});
-['#acervo h2','.filters','.about h2','.about p','#contato p','.cta','.contacts','footer'].forEach(q=>document.querySelectorAll(q).forEach(e=>{e.classList.add('rv');rio.observe(e)}));
+['#acervo h2','.filters','.about h2','.pf','.about p','#contato p','.cta','.contacts','footer'].forEach(q=>document.querySelectorAll(q).forEach(e=>{e.classList.add('rv');rio.observe(e)}));
 document.querySelectorAll('.t').forEach((/** @type {HTMLElement} */ e,k)=>{e.classList.add('rv');e.style.setProperty('--d',(k%4)*.09+'s');rio.observe(e)});
 
 /* ===== PRELOADER ===== */
