@@ -90,9 +90,9 @@ test('Acervo: abas na ordem certa e filtro por categoria', async () => {
   await ready(page);
   assert.deepEqual(await page.locator('#filters button').allTextContents(), ['Todos', 'Filmes', 'Empreendimentos', 'Exteriores', 'Interiores']);
   const titles = await page.locator('#grid .t h4').allTextContents();
-  assert.deepEqual(titles.slice(0, 8), ['Vale dos Barões', 'Miradouro by Chartuni', 'Costa Dourada', 'Miradouro', 'Essenza da Mata', 'Espraiado', 'Porto Villa Residence', 'Santa Julia']);
+  assert.deepEqual(titles.slice(0, 9), ['Vale dos Barões', 'Miradouro by Chartuni', 'Costa Dourada', 'Resort Aracê', 'Miradouro', 'Essenza da Mata', 'Espraiado', 'Porto Villa Residence', 'Santa Julia']);
   await page.locator('#filters button', { hasText: 'Filmes' }).click();
-  assert.equal(await page.locator('#grid .t:not(.hide)').count(), 3);
+  assert.equal(await page.locator('#grid .t:not(.hide)').count(), 4);
   await page.locator('#filters button', { hasText: 'Interiores' }).click();
   assert.deepEqual(await page.locator('#grid .t:not(.hide) h4').allTextContents(), ['Sala Arcus', 'Sala Origem']);
   await page.locator('#filters button', { hasText: 'Todos' }).click();
