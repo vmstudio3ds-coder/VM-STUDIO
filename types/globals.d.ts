@@ -5,11 +5,15 @@ declare const THREE: any;
 interface HTMLVideoElement {
   _want?: string;
   _fb?: string;
+  /** Parte do filme carregada neste vídeo (player com dois vídeos). */
+  _i?: number;
   webkitEnterFullscreen?: () => void;
 }
 interface HTMLImageElement {
   _r?: Promise<unknown>;
 }
 interface Window {
+  /** Media Source do Safari/iPhone (iOS 17.1+). */
+  ManagedMediaSource?: typeof MediaSource;
   _lt?: number;
 }
