@@ -67,7 +67,7 @@ PM.forEach((p,i)=>{
  const n={p,i,w,cv:cvn,tx,mat,mesh,tc,tt,tm,tmat,grp,op:0,h:0,ld:0,rd:0,has:0};n.h=0;mesh.userData.n=n;PN.push(n);drawTag(n)});
 function drawTag(n){const c=n.tc,x=c.getContext('2d'),W=c.width,p=n.p,M=PORT,k=M?1.55:1;x.clearRect(0,0,W,c.height);x.textAlign='center';x.fillStyle='#fff';
  x.letterSpacing=(M?5:7)+'px';x.font=`400 ${Math.round(20*k)}px Inter,sans-serif`;x.globalAlpha=M?.85:.7;x.fillText(String(n.i+1).padStart(2,'0')+'  —  '+p.c.toUpperCase(),W/2,Math.round(46*(M?1.15:1)));
- x.globalAlpha=1;let fs=M?104:84;x.letterSpacing='3px';x.font=`300 ${fs}px "Cormorant Garamond",Georgia,serif`;while(x.measureText(p.t).width>W-60&&fs>40){fs-=4;x.font=`300 ${fs}px "Cormorant Garamond",Georgia,serif`}
+ x.globalAlpha=1;let fs=M?104:84;x.letterSpacing='3px';x.font=`200 ${fs}px Inter,sans-serif`;while(x.measureText(p.t).width>W-60&&fs>40){fs-=4;x.font=`200 ${fs}px Inter,sans-serif`}
  const ty=(M?62:58)+fs;x.fillText(p.t,W/2,ty);x.letterSpacing=(M?5:6)+'px';x.font=`300 ${Math.round(18*k)}px Inter,sans-serif`;x.globalAlpha=M?.75:.55;x.fillText(p.m.toUpperCase(),W/2,Math.min(c.height-8,ty+(M?44:44)));n.tt.needsUpdate=true}
 document.fonts.ready.then(()=>PN.forEach(drawTag));
 function paint(n){const c=n.cv,x=c.getContext('2d'),W=c.width,H=c.height,p=n.p;x.fillStyle='#000';x.fillRect(0,0,W,H);
@@ -149,13 +149,14 @@ const SN=(()=>{let hold=0;
   slideTo(Y[t],800);return true};
  return {step,Ys,idx,toAcervo,clr:()=>clearTimeout(hold)};
 })();
-addEventListener('wheel',e=>{if(open)return;const now=performance.now();
+addEventListener('wheel',e=>{if(open){e.preventDefault();return}const now=performance.now();
  if(SA||now<lockT){const Y=SN.Ys();if(scrollY>=Y[0]*.5&&scrollY<=acvS.offsetTop+2){e.preventDefault();lockT=Math.max(lockT,now+160)}return}
  if(Math.abs(e.deltaY)<3)return;
  const Y=SN.Ys(),y=scrollY;if(y<Y[0]*.5||y>acvS.offsetTop+2)return;
  if(SN.step(e.deltaY>0?1:-1)){e.preventDefault();lockT=now+160}},{passive:false});
-addEventListener('keydown',e=>{if(open)return;const d={ArrowDown:1,PageDown:1,' ':1,ArrowUp:-1,PageUp:-1}[e.key];if(!d||SA)return;if(SN.step(d))e.preventDefault()});
+addEventListener('keydown',e=>{if(open){if([' ','PageDown','PageUp','ArrowUp','ArrowDown','Home','End'].includes(e.key))e.preventDefault();return}const d={ArrowDown:1,PageDown:1,' ':1,ArrowUp:-1,PageUp:-1}[e.key];if(!d||SA)return;if(SN.step(d))e.preventDefault()});
 addEventListener('touchstart',()=>{if(SA){SA.stop=1;SA=null}SN.clr();lockT=0},{passive:true});
+addEventListener('touchmove',e=>{if(open)e.preventDefault()},{passive:false});
 /* celular: encaixe nativo do navegador (scroll-snap) */
 const TOUCH=matchMedia('(pointer:coarse)').matches;
 if(TOUCH){const box=document.createElement('div');box.id='snaps';document.body.append(box);
@@ -237,6 +238,7 @@ function filmMSE(v,p,D,T,off,fail){const [cv,ca]=(p.vc||'').split(','),tV=`video
  ms.addEventListener('sourceopen',()=>{try{tracks[0].sb=ms.addSourceBuffer(tV);tracks[1].sb=ms.addSourceBuffer(tA);ms.duration=T}catch(e){dead=true;fail();return}pump()},{once:true});
  ms.addEventListener('startstreaming',pump);
  v.addEventListener('loadeddata',()=>{ok=true},{once:true});
+ v.addEventListener('ended',()=>{if(fp===p&&!dead){v.currentTime=0;v.play().catch(()=>{})}});
  v.addEventListener('timeupdate',()=>{fi=partAt(D,v.currentTime).i;pump()});
  v.addEventListener('seeking',()=>{if(dead||has(v.currentTime))return;tracks.forEach(x=>{x.i=-1});pump()});
  /* não começou em 8 s (memória, formato...): volta ao modo simples */
@@ -250,33 +252,42 @@ function filmDual(v,p,D,off){const box=v.parentNode,last=D.length-1;let A=v,B=do
  const handoff=()=>{if(sw||fi>=last||B._i!==fi+1||B.readyState<2)return false;sw=1;B.muted=A.muted;B.currentTime=0;
   B.play().then(()=>{B.requestVideoFrameCallback?B.requestVideoFrameCallback(swap):swap()},()=>{sw=0;B._i=-1;srcNext()});return true};
  /* último recurso (próxima parte não carregou ou não pôde tocar): troca o src de A */
- const srcNext=()=>{if(fi>=last)return;fi++;const u=p.vfs[fi],pr=VBL.get(u),go=s=>{if(fp!==p)return;A._want=u;A.src=s;A.play().catch(()=>{})};
+ const srcNext=()=>{if(fi>=last){seek(0,true);return}fi++;const u=p.vfs[fi],pr=VBL.get(u),go=s=>{if(fp!==p)return;A._want=u;A.src=s;A.play().catch(()=>{})};
   pr?pr.then(go,()=>setVid(A,u,true)):setVid(A,u,true);prep(fi+1)};
  [A,B].forEach(x=>x.addEventListener('ended',()=>{if(x===A&&!handoff()&&!sw)srcNext()}));
  const tick=()=>{if(!box.isConnected)return;if(!A.paused&&A.duration&&A.duration-A.currentTime<.05)handoff();requestAnimationFrame(tick)};tick();
- return {act:()=>A,now:()=>off(fi)+(A.currentTime||0),mute:m=>{A.muted=B.muted=m},
-  seek:t=>{const {i,lt}=partAt(D,t),wasP=!A.paused;if(i===fi){A.currentTime=lt;return}
-   fi=i;sw=0;B.pause();const u=p.vfs[i],pr=VBL.get(u),go=src=>{if(fp!==p)return;A._want=u;A.src=src;A.addEventListener('loadedmetadata',()=>{A.currentTime=lt;if(wasP)A.play().catch(()=>{})},{once:true})};
-   if(pr)pr.then(go,()=>go(u));else go(u);prep(i+1)}}}
+ function seek(t,go){const {i,lt}=partAt(D,t),wasP=go||!A.paused;if(i===fi){A.currentTime=lt;if(go)A.play().catch(()=>{});return}
+   fi=i;sw=0;B.pause();const u=p.vfs[i],pr=VBL.get(u),ld=src=>{if(fp!==p)return;A._want=u;A.src=src;A.addEventListener('loadedmetadata',()=>{A.currentTime=lt;if(wasP)A.play().catch(()=>{})},{once:true})};
+   if(pr)pr.then(ld,()=>ld(u));else ld(u);prep(i+1)}
+ return {act:()=>A,now:()=>off(fi)+(A.currentTime||0),mute:m=>{A.muted=B.muted=m},seek}}
 function filmUI(v,p){const box=v.parentNode,D=p.durs||p.vfs.map(()=>0),T=filmTotal(D),off=i=>partOffset(D,i);
  box.classList.add('film');v.controls=false;
  /* sem Media Source, ou se ela falhar ao começar: modo simples, a partir da parte 1 */
  const simple=()=>{fi=0;v._want='';setVid(v,p.vfs[0],true);return filmDual(v,p,D,off)};
  let E=filmMSE(v,p,D,T,off,()=>{if(fp===p&&box.isConnected)E=simple()})||filmDual(v,p,D,off);
  box.addEventListener('click',e=>{if(/** @type {Element} */(e.target).tagName==='VIDEO'){e.stopPropagation();tog()}});
- box.insertAdjacentHTML('beforeend',`<div class="fc"><button class="fc-pp" aria-label="Play ou pausa">${IC.pause}</button><span class="fc-t">00:00 / ${fmtT(T)}</span><div class="fc-bar"><i></i></div><button class="fc-mu" aria-label="Som">${IC.vol}</button><button class="fc-fs" aria-label="Tela cheia">${IC.fs}</button></div>`);
- const fc=box.querySelector('.fc'),pp=fc.querySelector('.fc-pp'),tt=fc.querySelector('.fc-t'),bar=fc.querySelector('.fc-bar'),fill=bar.querySelector('i'),mu=fc.querySelector('.fc-mu');let idle=0;
- const sync=()=>{if(!box.isConnected)return;const A=E.act(),t=Math.min(T,E.now());fill.style.width=(T?t/T*100:0)+'%';tt.textContent=fmtT(t)+' / '+fmtT(T);pp.innerHTML=A.paused?IC.play:IC.pause;mu.innerHTML=A.muted?IC.mute:IC.vol;requestAnimationFrame(sync)};sync();
+ box.insertAdjacentHTML('beforeend',`<div class="fc"><button class="fc-pp" aria-label="Play ou pausa">${IC.pause}</button><span class="fc-t">00:00 / ${fmtT(T)}</span><div class="fc-bar"><i></i><b class="fc-tip"><s></s><em>00:00</em></b></div><button class="fc-mu" aria-label="Som">${IC.vol}</button><button class="fc-fs" aria-label="Tela cheia">${IC.fs}</button></div>`);
+ const fc=box.querySelector('.fc'),pp=fc.querySelector('.fc-pp'),tt=fc.querySelector('.fc-t'),bar=fc.querySelector('.fc-bar'),fill=bar.querySelector('i'),mu=fc.querySelector('.fc-mu');let idle=0,drag=false;
+ const sync=()=>{if(!box.isConnected)return;const A=E.act(),t=Math.min(T,E.now());if(!drag)fill.style.width=(T?t/T*100:0)+'%';tt.textContent=fmtT(t)+' / '+fmtT(T);pp.innerHTML=A.paused?IC.play:IC.pause;mu.innerHTML=A.muted?IC.mute:IC.vol;requestAnimationFrame(sync)};sync();
  const wake=()=>{box.classList.remove('idle');clearTimeout(idle);idle=setTimeout(()=>{if(!E.act().paused)box.classList.add('idle')},2500)};wake();
  box.addEventListener('pointermove',wake);box.addEventListener('pointerdown',wake);
  const tog=()=>{const A=E.act();A.paused?A.play().catch(()=>{}):A.pause();wake()};
  pp.onclick=e=>{e.stopPropagation();tog()};
  mu.onclick=e=>{e.stopPropagation();E.mute(!E.act().muted);wake()};
  fc.querySelector('.fc-fs').onclick=e=>{e.stopPropagation();const A=E.act();if(document.fullscreenElement)document.exitFullscreen();else if(box.requestFullscreen)box.requestFullscreen().catch(()=>{});else if(A.webkitEnterFullscreen)A.webkitEnterFullscreen()};
- const seek=x=>{const r=bar.getBoundingClientRect();E.seek(Math.max(0,Math.min(T-.05,(x-r.left)/r.width*T)))};
- let drag=false;bar.addEventListener('pointerdown',e=>{e.stopPropagation();drag=true;bar.setPointerCapture(e.pointerId);seek(e.clientX)});
- bar.addEventListener('pointermove',e=>{if(drag){const r=bar.getBoundingClientRect(),t=Math.max(0,Math.min(T,(e.clientX-r.left)/r.width*T));fill.style.width=t/T*100+'%'}});
- bar.addEventListener('pointerup',e=>{if(drag){drag=false;seek(e.clientX)}});
+ /* prévia: miniatura da folha (um quadro a cada 2 s, 10 por linha) e o tempo de destino */
+ const tip=bar.querySelector('.fc-tip'),th=/** @type {HTMLElement} */(tip.querySelector('s')),te=tip.querySelector('em'),C=10,vert=(p.ar||16/9)<1,TW=vert?90:160,TH=vert?160:90;
+ if(p.th){th.style.cssText=`width:${TW}px;height:${TH}px;background-image:url(${p.th});background-size:${C*TW}px auto`}else th.remove();
+ const at=x=>{const r=bar.getBoundingClientRect();return Math.max(0,Math.min(T,(x-r.left)/r.width*T))};
+ const show=x=>{const r=bar.getBoundingClientRect(),t=at(x),k=Math.min((p.thn||1)-1,Math.floor(t/2)),hw=tip.offsetWidth/2;te.textContent=fmtT(t);
+  if(p.th)th.style.backgroundPosition=`${-(k%C)*TW}px ${-Math.floor(k/C)*TH}px`;tip.style.left=Math.max(hw,Math.min(r.width-hw,x-r.left))+'px';tip.classList.add('on')};
+ const hide=()=>tip.classList.remove('on');
+ const seek=x=>E.seek(Math.min(T-.05,at(x)));
+ bar.addEventListener('pointerdown',e=>{e.stopPropagation();drag=true;bar.setPointerCapture(e.pointerId);fill.style.width=at(e.clientX)/T*100+'%';show(e.clientX)});
+ bar.addEventListener('pointermove',e=>{if(drag)fill.style.width=at(e.clientX)/T*100+'%';if(drag||e.pointerType==='mouse')show(e.clientX)});
+ bar.addEventListener('pointerleave',()=>{if(!drag)hide()});
+ bar.addEventListener('pointerup',e=>{if(drag){drag=false;seek(e.clientX)}if(e.pointerType!=='mouse')hide()});
+ bar.addEventListener('pointercancel',()=>{drag=false;hide()});
  fc.addEventListener('click',e=>e.stopPropagation())}
 function openLB(p){gp=p.gal?p:null;fp=p.vfs?p:null;fi=0;const m=document.createElement('div');m.className='media';m.style.setProperty('--g',`linear-gradient(180deg,${p.g[0]},${p.g[1]} 58%,${p.g[2]})`);
  if(p.v){const lv=document.createElement('video');lv.controls=!p.vfs;lv.loop=!p.vfs;if(p.poster)lv.poster=p.poster;m.append(lv);setVid(lv,p.vfs?p.vfs[0]:p.v,true)}else if(p.i&&!p.gal)m.innerHTML=`<img src="${p.i}" alt="${p.t}">`;
