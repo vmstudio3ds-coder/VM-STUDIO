@@ -199,30 +199,52 @@ const IC={play:'<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7 5l12
       única linha do tempo do mesmo <video> — emenda sem nenhuma pausa e a barra é nativa do filme inteiro.
    2) Sem Media Source: dois <video> empilhados; o de espera já tem a próxima parte e assume no último quadro. */
 const MSC=window.ManagedMediaSource||window.MediaSource;
-function filmMSE(v,p,D,T,off){const [cv,ca]=(p.vc||'').split(','),tV=`video/mp4; codecs="${cv}"`,tA=`audio/mp4; codecs="${ca}"`;
+/* MP4 fragmentado → {init, frags:[{t,b}]}: cabeçalho (ftyp+moov) e cada fragmento (moof+mdat) com o tempo de início (tfdt). */
+function fmp4(buf){const d=new DataView(buf),u8=new Uint8Array(buf),n=buf.byteLength,tag=o=>String.fromCharCode(u8[o],u8[o+1],u8[o+2],u8[o+3]);
+ const find=(s,e,t)=>{for(let o=s;o<e-4;o++)if(u8[o]===t.charCodeAt(0)&&tag(o)===t)return o;return -1};
+ const tops=[];for(let o=0;o<n;){let sz=d.getUint32(o);if(sz===1)sz=Number(d.getBigUint64(o+8));if(sz<8)break;tops.push({o,sz,t:tag(o+4)});o+=sz}
+ const m=tops.findIndex(x=>x.t==='moof'),initEnd=m<0?n:tops[m].o,md=find(0,initEnd,'mdhd'),ts=md<0?1:d.getUint32(md+4+(u8[md+4]?20:12)),frags=[];
+ for(let k=m;k>=0&&k<tops.length;k++){if(tops[k].t!=='moof')continue;let e=n;for(let j=k+1;j<tops.length;j++)if(tops[j].t==='moof'){e=tops[j].o;break}
+  const f=find(tops[k].o,tops[k].o+tops[k].sz,'tfdt'),bt=f<0?0:(u8[f+4]?Number(d.getBigUint64(f+8)):d.getUint32(f+8));frags.push({t:bt/ts,b:buf.slice(tops[k].o,e)})}
+ return {init:buf.slice(0,initEnd),frags}}
+function filmMSE(v,p,D,T,off,fail){const [cv,ca]=(p.vc||'').split(','),tV=`video/mp4; codecs="${cv}"`,tA=`audio/mp4; codecs="${ca}"`;
  if(!MSC||!p.vsv||!p.vsa||!ca||!MSC.isTypeSupported(tV)||!MSC.isTypeSupported(tA))return null;
- /* imagem e som em buffers separados: o vídeo volta vsh (atraso dos quadros B sem edit list) e encaixa quadro a quadro;
-    o som de cada parte é aparado no fim (janela), para não sobrepor a parte seguinte */
- const ms=new MSC(),pend=new Set(),last=D.length-1,sh=p.vsh||0;let sv=null,sa=null,q=Promise.resolve();
+ /* Imagem e som em buffers separados, enviados em fragmentos pequenos (só ~20 s à frente; o que já passou é liberado),
+    para caber na memória do iPhone. Os dois voltam vsh (atraso do remux sem edit list); a janela de cada parte descarta
+    o quadro de "aquecimento" do som no início e o excesso no fim, e cada parte entra no ponto exato de corte (durs). */
+ const ms=new MSC(),last=D.length-1,sh=p.vsh||0,AHEAD=20,cache=new Map();let dead=false,busy=false,again=false,ok=false;
  v._want='mse';v.disableRemotePlayback=true;v.src=URL.createObjectURL(ms);v.play().catch(()=>{});
- const has=t=>{const b=v.buffered;for(let k=0;k<b.length;k++)if(t>=b.start(k)&&t<=b.end(k))return true;return false};
- const done=sb=>new Promise(ok=>sb.addEventListener('updateend',ok,{once:true}));
- const get=u=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()});
- const put=async(sb,b,o,ws,we)=>{sb.timestampOffset=o;sb.appendWindowStart=0;sb.appendWindowEnd=we;sb.appendWindowStart=ws;
-  try{sb.appendBuffer(b)}catch(e){if(e.name!=='QuotaExceededError')throw e;sb.remove(0,Math.max(0,v.currentTime-4));await done(sb);sb.appendBuffer(b)}await done(sb)};
- const need=i=>{if(!sv||i<0||i>last||pend.has(i)||(has(off(i)+.1)&&has(off(i)+D[i]-.1)))return;pend.add(i);
-  const bv=get(p.vsv[i]),ba=get(p.vsa[i]);
-  q=q.then(()=>Promise.all([bv,ba])).then(async([b1,b2])=>{if(ms.readyState==='closed')return;
-   await Promise.all([put(sv,b1,off(i)-sh+.001,Math.max(0,off(i)-.02),off(i)+D[i]+1),put(sa,b2,off(i),off(i),off(i)+D[i]+.03)]);
-   if(i===last&&ms.readyState==='open')try{ms.endOfStream()}catch(e){}}).catch(()=>{}).then(()=>{pend.delete(i)})};
- ms.addEventListener('sourceopen',()=>{sv=ms.addSourceBuffer(tV);sa=ms.addSourceBuffer(tA);ms.duration=T;need(0);need(1)},{once:true});
- const look=()=>{const {i,lt}=partAt(D,v.currentTime);fi=i;need(i);if(lt>D[i]*.35)need(i+1)};
- v.addEventListener('timeupdate',look);v.addEventListener('seeking',look);
+ const part=i=>{if(!cache.has(i)){const g=u=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(fmp4);
+   cache.set(i,Promise.all([g(p.vsv[i]),g(p.vsa[i])]));[...cache.keys()].forEach(k=>{if(k<i-1)cache.delete(k)})}return cache.get(i)};
+ const end=(sb,t)=>{const b=sb.buffered;for(let k=0;k<b.length;k++)if(t>=b.start(k)-.15&&t<=b.end(k))return b.end(k);return t};
+ const has=t=>{const b=v.buffered;for(let k=0;k<b.length;k++)if(t>=b.start(k)&&t<b.end(k)-.05)return true;return false};
+ const upd=sb=>new Promise(r=>sb.addEventListener('updateend',r,{once:true}));
+ const tracks=[{k:0,i:-1,j:0,we:.03},{k:1,i:-1,j:0,we:.03}];tracks[0].we=1;
+ const go=async(tr,i,lt)=>{const P=(await part(i))[tr.k],sb=tr.sb;if(sb.updating)await upd(sb);
+  sb.timestampOffset=off(i)-sh+.001;sb.appendWindowStart=0;sb.appendWindowEnd=off(i)+D[i]+tr.we;sb.appendWindowStart=Math.max(0,off(i)-.02);
+  sb.appendBuffer(P.init);await upd(sb);tr.i=i;tr.fin=false;let j=0;while(j+1<P.frags.length&&P.frags[j+1].t-sh<=lt)j++;tr.j=j};
+ const app=async(sb,b)=>{try{sb.appendBuffer(b)}catch(e){if(e.name!=='QuotaExceededError')throw e;sb.remove(0,Math.max(0,v.currentTime-2));await upd(sb);sb.appendBuffer(b)}await upd(sb)};
+ const pump=async()=>{if(busy){again=true;return}if(dead||ms.readyState==='closed'||!tracks[0].sb)return;busy=true;again=false;
+  try{for(let more=true;more&&!dead;){more=false;const t=v.currentTime;
+   for(const tr of tracks){const sb=tr.sb;if(end(sb,t)-t>AHEAD)continue;
+    if(t-(sb.buffered.length?sb.buffered.start(0):t)>25){sb.remove(0,t-12);await upd(sb)}
+    if(tr.i<0){const {i,lt}=partAt(D,t);await go(tr,i,lt)}
+    const P=(await part(tr.i))[tr.k];
+    if(tr.j>=P.frags.length){if(tr.i>=last){tr.fin=true;continue}await go(tr,tr.i+1,0);more=true}
+    else{await app(sb,P.frags[tr.j++].b);more=true;if(tr.j>=P.frags.length&&tr.i<last)part(tr.i+1)}}}
+   if(tracks.every(x=>x.fin)&&ms.readyState==='open')try{ms.endOfStream()}catch(e){}}
+  catch(e){if(!ok){dead=true;fail()}}finally{busy=false;if(again&&!dead)pump()}};
+ ms.addEventListener('sourceopen',()=>{try{tracks[0].sb=ms.addSourceBuffer(tV);tracks[1].sb=ms.addSourceBuffer(tA);ms.duration=T}catch(e){dead=true;fail();return}pump()},{once:true});
+ ms.addEventListener('startstreaming',pump);
+ v.addEventListener('loadeddata',()=>{ok=true},{once:true});
+ v.addEventListener('timeupdate',()=>{fi=partAt(D,v.currentTime).i;pump()});
+ v.addEventListener('seeking',()=>{if(dead||has(v.currentTime))return;tracks.forEach(x=>{x.i=-1});pump()});
+ /* não começou em 8 s (memória, formato...): volta ao modo simples */
+ setTimeout(()=>{if(!ok&&!dead&&fp===p&&v.readyState<2){dead=true;fail()}},8000);
  return {act:()=>v,now:()=>v.currentTime||0,seek:t=>{v.currentTime=t},mute:m=>{v.muted=m}}}
 function filmDual(v,p,D,off){const box=v.parentNode,last=D.length-1;let A=v,B=document.createElement('video'),sw=0;
  B.className='alt';B.playsInline=true;B.setAttribute('playsinline','');B.preload='auto';box.insertBefore(B,v.nextSibling);
- /* iPhone: um vídeo só toca com som se já foi iniciado num toque; "benze" B agora, com a mesma parte de A (o som coincide) */
- B._i=-1;if(p.vfs[1]){B.src=p.vfs[0];B.play().then(()=>{B.pause();prep(1)},()=>prep(1))}
+ B._i=-1;prep(fi+1);
  function prep(i){B._i=-1;if(fp!==p||!p.vfs[i])return;const u=p.vfs[i],pr=VBL.get(u),go=s=>{if(fp!==p||fi+1!==i||sw)return;B._i=i;B.src=s;B.load()};pr?pr.then(go,()=>go(u)):go(u);if(p.vfs[i+1])vblob(p.vfs[i+1]).catch(()=>{})}
  const swap=()=>{const o=A;A=B;B=o;A.classList.remove('alt');B.classList.add('alt');B.pause();fi=A._i;sw=0;prep(fi+1)};
  const handoff=()=>{if(sw||fi>=last||B._i!==fi+1||B.readyState<2)return false;sw=1;B.muted=A.muted;B.currentTime=0;
@@ -238,7 +260,9 @@ function filmDual(v,p,D,off){const box=v.parentNode,last=D.length-1;let A=v,B=do
    if(pr)pr.then(go,()=>go(u));else go(u);prep(i+1)}}}
 function filmUI(v,p){const box=v.parentNode,D=p.durs||p.vfs.map(()=>0),T=filmTotal(D),off=i=>partOffset(D,i);
  box.classList.add('film');v.controls=false;
- const E=filmMSE(v,p,D,T,off)||filmDual(v,p,D,off);
+ /* sem Media Source, ou se ela falhar ao começar: modo simples, a partir da parte 1 */
+ const simple=()=>{fi=0;v._want='';setVid(v,p.vfs[0],true);return filmDual(v,p,D,off)};
+ let E=filmMSE(v,p,D,T,off,()=>{if(fp===p&&box.isConnected)E=simple()})||filmDual(v,p,D,off);
  box.addEventListener('click',e=>{if(/** @type {Element} */(e.target).tagName==='VIDEO'){e.stopPropagation();tog()}});
  box.insertAdjacentHTML('beforeend',`<div class="fc"><button class="fc-pp" aria-label="Play ou pausa">${IC.pause}</button><span class="fc-t">00:00 / ${fmtT(T)}</span><div class="fc-bar"><i></i></div><button class="fc-mu" aria-label="Som">${IC.vol}</button><button class="fc-fs" aria-label="Tela cheia">${IC.fs}</button></div>`);
  const fc=box.querySelector('.fc'),pp=fc.querySelector('.fc-pp'),tt=fc.querySelector('.fc-t'),bar=fc.querySelector('.fc-bar'),fill=bar.querySelector('i'),mu=fc.querySelector('.fc-mu');let idle=0;
