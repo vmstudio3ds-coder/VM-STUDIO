@@ -35,7 +35,7 @@ test('toda imagem e vídeo aponta para um arquivo que existe', () => {
   for (const p of A) {
     for (const u of p.gal || []) assert.ok(isAsset(u), `${p.t}: ${u.slice(0, 60)}`);
     for (const k of ['v', 'vm', 'poster']) if (p[k]) assert.ok(isAsset(p[k]), `${p.t}.${k}`);
-    for (const u of p.vfs || []) assert.ok(isAsset(u), `${p.t}: parte ${u}`);
+    for (const u of [...(p.vfs || []), ...(p.vsv || []), ...(p.vsa || [])]) assert.ok(isAsset(u), `${p.t}: parte ${u}`);
   }
 });
 
@@ -43,6 +43,7 @@ test('filmes: cada parte tem duração, com pôster e loop leve para celular', (
   for (const p of A.filter((x) => x.c === 'Filmes')) {
     assert.ok(p.vfs && p.vfs.length > 0, p.t);
     assert.equal(p.durs.length, p.vfs.length, `${p.t}: durs × partes`);
+    assert.ok(p.vc && p.vsv?.length === p.vfs.length && p.vsa?.length === p.vfs.length, `${p.t}: imagem e som separados (emenda sem pausa)`);
     p.durs.forEach((d) => assert.ok(d > 0));
     assert.ok(p.poster && p.vm && p.v, `${p.t}: poster/vm/v`);
   }

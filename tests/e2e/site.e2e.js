@@ -126,7 +126,9 @@ test('filme: "uma tomada" — sem setas nem contador, com player próprio e curs
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains('lbo')));
   for (const q of ['#gp', '#gn', '#gc']) assert.equal(await page.locator(q).isVisible(), false, q);
   assert.equal(await page.locator('.fc-t').textContent(), '00:00 / 05:33');
-  assert.equal(await page.locator('#lbm video').evaluate((v) => v.controls), false);
+  assert.equal(await page.locator('#lbm video:not(.alt)').evaluate((v) => v.controls), false);
+  const modo = await page.evaluate(() => (document.querySelector('#lbm video').src.startsWith('blob:') ? 'continuo' : document.querySelectorAll('#lbm video.alt').length === 1 ? 'dois videos' : 'nenhum'));
+  assert.notEqual(modo, 'nenhum', 'emenda sem pausa: Media Source (uma linha do tempo) ou vídeo de espera da próxima parte');
   await page.keyboard.press('Escape');
   assert.ok(!(await page.evaluate(() => document.documentElement.classList.contains('lbo'))));
   await ctx.close();
