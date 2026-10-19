@@ -62,5 +62,5 @@ test('Acervo: abas e ordem (Filmes, Empreendimentos na prioridade, Exteriores, I
   assert.deepEqual([...new Set(cats)], CO, 'categorias agrupadas na ordem');
   const emp = s.filter((p) => p.c === 'Empreendimentos').map((p) => p.t);
   assert.deepEqual(emp.slice(0, PRI.length), PRI);
-  assert.deepEqual(s.filter((p) => p.c === 'Filmes').map((p) => p.t), ['Vale dos Barões', 'Miradouro by Chartuni', 'Costa Dourada']);
+  assert.deepEqual(s.filter((p) => p.c === 'Filmes').map((p) => p.t), ['Vale dos Barões', 'Miradouro by Chartuni', 'Costa Dourada', 'Resort Aracê']);
 });
