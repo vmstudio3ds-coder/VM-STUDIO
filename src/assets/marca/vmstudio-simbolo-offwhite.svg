@@ -1,1 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120.00 120.00" width="120.00" height="120.00"><path d="M20.000 20.000H100.000V100.000H20.000ZM32.000 20.000L41.000 20.000L60.000 94.000ZM79.000 20.000L88.000 20.000L60.000 94.000Z" fill="#F2F0EC" fill-rule="evenodd"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120.00 120.00" width="120.00" height="120.00"><path d="M20.000 20.000L32.000 20.000L60.000 94.000L41.000 20.000L79.000 20.000L60.000 94.000L88.000 20.000L100.000 20.000L100.000 100.000L20.000 100.000Z" fill="#F2F0EC" fill-rule="nonzero"/></svg>
