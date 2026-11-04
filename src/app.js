@@ -71,10 +71,18 @@ function drawTag(n){const c=n.tc,x=c.getContext('2d'),W=c.width,p=n.p,M=PORT,k=M
  const ty=(M?62:58)+fs;x.fillText(p.t,W/2,ty);x.letterSpacing=(M?5:6)+'px';x.font=`300 ${Math.round(18*k)}px Inter,sans-serif`;x.globalAlpha=M?.75:.55;x.fillText(p.m.toUpperCase(),W/2,Math.min(c.height-8,ty+(M?44:44)));n.tt.needsUpdate=true}
 document.fonts.ready.then(()=>PN.forEach(drawTag));
 function paint(n){const c=n.cv,x=c.getContext('2d'),W=c.width,H=c.height,p=n.p;x.fillStyle='#000';x.fillRect(0,0,W,H);
- const rdy=im=>im&&im.complete&&im.naturalWidth,cvr=(im,ix)=>{const iw=im.naturalWidth||im.videoWidth,ih=im.naturalHeight||im.videoHeight,k=Math.max(W/iw,H/ih),sw=W/k,sh=H/k,fy=p.fy?p.fy[ix]:.5;x.drawImage(im,(iw-sw)/2,(ih-sh)*fy,sw,sh,0,0,W,H);n.has=1};
- if(n.gal){const a=n.gal[n.k],b=n.gal[n.pk];if(rdy(b))cvr(b,n.pk);if(rdy(a)){x.globalAlpha=n.f;cvr(a,n.k);x.globalAlpha=1}}else if(n.vd&&n.vd.readyState>=2)cvr(n.vd,0);else if(n.pst&&n.pst.complete&&n.pst.naturalWidth)cvr(n.pst,0);
- n.tx.needsUpdate=true}
-function gimg(n,i){i=(i+n.gal.length)%n.gal.length;if(!n.gal[i]){const im=new Image();im.decoding='async';n.gal[i]=im;im.src=n.p.gal[i];(im.decode?im.decode():Promise.resolve()).then(()=>paint(n)).catch(()=>paint(n))}return n.gal[i]}
+ const rdy=im=>im&&(im.complete?im.naturalWidth:im.width),cvr=(im,ix)=>{const iw=im.naturalWidth||im.videoWidth||im.width,ih=im.naturalHeight||im.videoHeight||im.height,k=Math.max(W/iw,H/ih),sw=W/k,sh=H/k,fy=p.fy?p.fy[ix]:.5;x.drawImage(im,(iw-sw)/2,(ih-sh)*fy,sw,sh,0,0,W,H);n.has=1};
+ if(n.gal){const a=n.gb[n.k]||n.gal[n.k],b=n.gb[n.pk]||n.gal[n.pk];if(rdy(b))cvr(b,n.pk);if(rdy(a)){x.globalAlpha=n.f;cvr(a,n.k);x.globalAlpha=1}}else if(n.vd&&n.vd.readyState>=2)cvr(n.vd,0);else if(n.pst&&n.pst.complete&&n.pst.naturalWidth)cvr(n.pst,0);
+ n.tx.needsUpdate=true;if(!n.grp.visible)R.initTexture(n.tx)}
+/* Foto baixada como Blob e decodificada já no tamanho do painel, fora da thread principal: as trocas de
+   foto deixam de redimensionar 1600×2100 px a cada quadro (o que travava as primeiras rolagens no celular).
+   Sem createImageBitmap, ou se falhar, cai no <img> de antes. */
+function gimg(n,i){i=(i+n.gal.length)%n.gal.length;if(!n.gal[i]){const u=n.p.gal[i],W=n.cv.width,H=n.cv.height;n.gal[i]=1;
+ const viaImg=()=>{const im=new Image();im.decoding='async';n.gal[i]=im;im.src=u;(im.decode?im.decode():Promise.resolve()).then(()=>paint(n)).catch(()=>paint(n))};
+ if(!window.createImageBitmap)return viaImg(),n.gal[i];
+ fetch(u).then(r=>r.blob()).then(b=>window.createImageBitmap(b).then(f=>{const k=Math.min(1,Math.max(W/f.width,H/f.height)),w=Math.round(f.width*k),h=Math.round(f.height*k);
+  if(k>=1)return f;f.close();return window.createImageBitmap(b,{resizeWidth:w,resizeHeight:h,resizeQuality:'high'})})).then(bm=>{n.gb[i]=bm;paint(n)}).catch(viaImg)}
+ return n.gal[i]}
 /* ===== vídeo robusto no celular (iPhone): se não começar, baixa e toca localmente ===== */
 const COARSE=matchMedia('(pointer:coarse)').matches,VBL=new Map();
 function vblob(u){let p=VBL.get(u);if(!p){p=fetch(u).then(r=>{if(!r.ok)throw 0;return r.blob()}).then(b=>URL.createObjectURL(b));VBL.set(u,p);p.catch(()=>VBL.delete(u))}return p}
@@ -85,7 +93,7 @@ function setVid(v,u,play){v.playsInline=true;v.setAttribute('playsinline','');v.
  if(COARSE&&VBL.has(u)){vblob(u).then(o=>{if(v._want!==u)return;v.src=o;if(play)v.play().catch(()=>{})});return}
  v.src=u;if(play)v.play().catch(()=>{});
  if(COARSE){v.addEventListener('error',fb,{once:true});setTimeout(()=>{if(!ok&&v.readyState<2)fb()},3500)}}
-function load(n){n.ld=1;if(n.p.gal){n.k=0;n.pk=0;n.f=1;n.gal=n.p.gal.map(()=>null);gimg(n,0);gimg(n,1)}if(n.p.v&&!n.p.gal){const v=document.createElement('video');v.muted=v.loop=v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';setVid(v,(n.p.vm&&COARSE)?n.p.vm:n.p.v,false);n.vd=v;v.addEventListener('loadeddata',()=>paint(n));if(n.p.poster){const im=new Image();im.onload=()=>paint(n);im.src=n.p.poster;n.pst=im}}}
+function load(n){n.ld=1;if(n.p.gal){n.k=0;n.pk=0;n.f=1;n.gal=n.p.gal.map(()=>null);n.gb=[];gimg(n,0);gimg(n,1)}if(n.p.v&&!n.p.gal){const v=document.createElement('video');v.muted=v.loop=v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';setVid(v,(n.p.vm&&COARSE)?n.p.vm:n.p.v,false);n.vd=v;v.addEventListener('loadeddata',()=>paint(n));if(n.p.poster){const im=new Image();im.onload=()=>paint(n);im.src=n.p.poster;n.pst=im}}}
 
 /* Fundo grafite fixo e sol prateado (o antigo ciclo solar foi desligado) */
 function cyc(p){scene.background.set(0x0a0a0c);glow.set(0xd4dae2)}
@@ -307,7 +315,14 @@ const rio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.tar
 document.querySelectorAll('.t').forEach((/** @type {HTMLElement} */ e,k)=>{e.classList.add('rv');e.style.setProperty('--d',(k%4)*.09+'s');rio.observe(e)});
 
 /* ===== PRELOADER ===== */
-const t0=performance.now();let ok=0;logoReady.then(()=>ok=1);
+const t0=performance.now();let ok=0;logoReady.then(()=>{warm();ok=1});
+/* Aquecimento da GPU enquanto o contador roda: sem isso o celular compila shaders e aloca texturas na 1ª rolagem */
+function warm(){try{PN.forEach(n=>n.grp.visible=true);R.compile(scene,cam);PN.forEach(n=>{R.initTexture(n.tx);R.initTexture(n.tt)})}catch(e){}PN.forEach(n=>n.grp.visible=false)}
+const idle=window.requestIdleCallback||(f=>setTimeout(f,200));
+/* Só pré-carrega com a página parada: carregar durante a rolagem é justamente o que trava */
+let lastSc=0;addEventListener('scroll',()=>{lastSc=performance.now()},{passive:true});
+function preload(){const n=PN.find(m=>!m.ld&&m.p.gal);if(!n)return;if(performance.now()-lastSc<900||SA)return setTimeout(preload,500);load(n);setTimeout(()=>idle(preload,{timeout:1500}),700)}
+setTimeout(()=>idle(preload,{timeout:1500}),1500);
 (function L(){const n=Math.min(100,(performance.now()-t0)/7);$('#ln').textContent=String(n|0).padStart(3,'0');
  if(n<100||!ok)requestAnimationFrame(L);else{$('#ld').classList.add('done');root.classList.remove('lock')}})();
 setTimeout(()=>{$('#ld').classList.add('done');root.classList.remove('lock')},4000);
