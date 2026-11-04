@@ -23,7 +23,13 @@ const lg=new Image();lg.src=LOGO;const logoReady=new Promise(r=>lg.onload=()=>{
  const S=700,c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');x.imageSmoothingQuality='high';x.fillStyle='#fff';x.fillRect(0,0,S,S);x.drawImage(lg,0,0,S,S);
  const d=x.getImageData(0,0,S,S).data,pos=[],rr=[],ss=[],bb=[],W=5.6;
  const add=(a,b,z,k)=>{pos.push(a,b,z);rr.push(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1);ss.push(Math.random());bb.push(k)};
- for(let j=0;j<S;j++)for(let i=0;i<S;i++){const k=(255-d[(j*S+i)*4])/255;if(k>.18&&Math.random()<Math.min(1,k*1.15)){const X=(i+Math.random()-.5)/S-.5,Y=.5-(j+Math.random()-.5)/S;add(X*W,Y*W,.45*(1-4*(X*X+Y*Y))+(Math.random()-.5)*.05,k)}}
+ /* Traço fino (letras do logotipo) ganha partículas extras para ter o mesmo brilho das áreas cheias:
+    a média local (janela 9×9, via somatório 2D) mede a espessura do traço em cada pixel */
+ const S1=S+1,I=new Float32Array(S1*S1),kk=(i,j)=>(255-d[(j*S+i)*4])/255;
+ for(let j=0;j<S;j++){let row=0;for(let i=0;i<S;i++){row+=kk(i,j);I[(j+1)*S1+i+1]=I[j*S1+i+1]+row}}
+ const mean=(i,j,r)=>{const a=Math.max(0,i-r),b=Math.max(0,j-r),c=Math.min(S,i+r+1),e=Math.min(S,j+r+1);return(I[e*S1+c]-I[b*S1+c]-I[e*S1+a]+I[b*S1+a])/((c-a)*(e-b))};
+ for(let j=0;j<S;j++)for(let i=0;i<S;i++){const k=kk(i,j);if(k>.18&&Math.random()<Math.min(1,k*1.15)){const m=mean(i,j,4),n=m<.3?3:m<.55?2:1;
+  for(let q=0;q<n;q++){const X=(i+Math.random()-.5)/S-.5,Y=.5-(j+Math.random()-.5)/S;add(X*W,Y*W,.45*(1-4*(X*X+Y*Y))+(Math.random()-.5)*.05,k)}}}
  for(let q=0;q<2200;q++){const a=Math.random()*6.283,b=Math.acos(2*Math.random()-1),r=2.8+Math.random()*5;add(r*Math.sin(b)*Math.cos(a),r*Math.sin(b)*Math.sin(a)*.8,r*Math.cos(b)*.7,0)}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('aR',new THREE.Float32BufferAttribute(rr,3));g.setAttribute('aS',new THREE.Float32BufferAttribute(ss,1));g.setAttribute('aB',new THREE.Float32BufferAttribute(bb,1));
  logoPts=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
