@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="lock">
 <head>
 <meta charset="utf-8">
-<meta name="vm-version" content="103">
+<meta name="vm-version" content="104">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>VM Studio | Archviz</title>
 <meta name="description" content="Imagens e filmes 3D para arquitetura e empreendimentos imobiliários.">
@@ -15,19 +15,23 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<!-- Ícone transparente em cinza claro (aparece em fundo claro e escuro); iPhone usa a versão com fundo -->
-<link rel="icon" type="image/png" href="@inline:assets/icon.png">
-<link rel="apple-touch-icon" href="@inline:assets/apple-icon.png">
+<!-- Favicon "Feixe de luz": o SVG fica preto em aba clara e off-white em aba escura; PNG/ICO com fundo escuro servem em qualquer fundo (busca do Google, iPhone, Android) -->
+<link rel="icon" href="@public:favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="@public:favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="@public:favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="@public:icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="@public:icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="@public:apple-touch-icon.png">
 <meta name="theme-color" content="#0a0a0c">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>{{css}}</style>
 </head>
 <body>
-<div id="ld"><img id="ldl" src="@inline:assets/logo.png" alt="VM Studio"><span id="ln">000</span></div>
+<div id="ld"><img id="ldl" src="@inline:assets/marca/vmstudio-horizontal-offwhite.svg" alt="VM Studio"><span id="ln">000</span></div>
 <div id="cd"></div><div id="cr"><span id="cl"></span></div>
 <canvas id="gl"></canvas><div id="vg"></div>
-<header><a href="#" onclick="scrollTo(0,0);return false"><img src="@inline:assets/logo.png" alt="VM Studio"></a><nav><a href="#acervo">Acervo</a><a href="#sobre">Sobre</a><a href="#contato">Contato</a></nav></header>
+<header><a href="#" onclick="scrollTo(0,0);return false"><img src="@inline:assets/logo-header.svg" alt="VM Studio"></a><nav><a href="#acervo">Acervo</a><a href="#sobre">Sobre</a><a href="#contato">Contato</a></nav></header>
 <div id="cue"></div><div id="endcap"><small>Portfólio completo</small><h2>Acervo</h2><i></i></div>
 <div id="hud"><div><b id="hn">01</b><span id="ht"></span></div><div><span id="hs" hidden></span><em id="hp">0%</em></div></div>
 <div id="sp"></div>
