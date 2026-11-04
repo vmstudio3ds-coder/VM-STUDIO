@@ -13,7 +13,8 @@ src/
   lib/              lógica pura e testável (layout das janelas, snap, filme, ordem do Acervo…)
   data/projects.js  projetos: percurso 3D (P) e Acervo (A)
   data/galleries.js galerias embutidas (apontam para src/assets/gal/…)
-  assets/           imagens embutidas no HTML final (logo, galerias)
+  assets/           imagens embutidas no HTML final (logo, galerias); assets/marca/ tem os SVGs do logo
+  public/           favicons e site.webmanifest (@public:arquivo; viram arquivos na raiz no build:pages)
 scripts/build.mjs   junta tudo em dist/vm-studio.html
 scripts/graph.mjs   gera o grafo do código em graphify-out/
 tests/unit/         testes unitários (node:test)

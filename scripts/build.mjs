@@ -20,7 +20,7 @@ export const MODULES = [
   'app.js',
 ];
 
-const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 
 /** Remove a sintaxe de módulo (imports e a palavra export) de um arquivo-fonte. */
 export function stripModule(code) {
@@ -29,9 +29,17 @@ export function stripModule(code) {
     .replace(/^export\s+(?=(const|let|var|function|class)\b)/gm, '');
 }
 
-/** Troca cada "@inline:caminho" pelo data URI do arquivo em src/. */
-export function inlineAssets(text, read = (p) => readFileSync(join(SRC, p))) {
-  return text.replace(/@inline:([\w./-]+)/g, (_, p) => {
+/**
+ * Troca cada "@inline:caminho" pelo data URI do arquivo em src/.
+ * "@public:arquivo" aponta para src/public/ (favicons): vira "/arquivo" quando
+ * publicUrls é true (build:pages copia a pasta para a raiz do site) e data URI no resto.
+ */
+export function inlineAssets(text, read = (p) => readFileSync(join(SRC, p)), { publicUrls = false } = {}) {
+  return text.replace(/@(inline|public):([\w./-]+)/g, (_, kind, p) => {
+    if (kind === 'public') {
+      if (publicUrls) return '/' + p;
+      p = 'public/' + p;
+    }
     const mime = MIME[extname(p).toLowerCase()];
     if (!mime) throw new Error(`Tipo de arquivo não suportado: ${p}`);
     return `data:${mime};base64,${read(p).toString('base64')}`;
@@ -43,12 +51,12 @@ export function bundle(read = (p) => readFileSync(join(SRC, p), 'utf8')) {
   return MODULES.map((m) => stripModule(read(m))).join('');
 }
 
-export function build({ out = join(ROOT, 'dist', 'vm-studio.html') } = {}) {
+export function build({ out = join(ROOT, 'dist', 'vm-studio.html'), publicUrls = false } = {}) {
   const tpl = readFileSync(join(SRC, 'index.html'), 'utf8');
   const css = readFileSync(join(SRC, 'styles.css'), 'utf8');
   const js = bundle();
   if (js.includes('</script')) throw new Error('O script não pode conter "</script".');
-  const html = inlineAssets(tpl.replace('{{css}}', () => css).replace('{{js}}', () => js));
+  const html = inlineAssets(tpl.replace('{{css}}', () => css).replace('{{js}}', () => js), undefined, { publicUrls });
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html);
   return { out, bytes: Buffer.byteLength(html) };

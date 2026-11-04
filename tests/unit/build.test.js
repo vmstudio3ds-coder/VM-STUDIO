@@ -17,6 +17,12 @@ test('inlineAssets troca @inline por data URI', () => {
   assert.throws(() => inlineAssets('@inline:x.txt', () => Buffer.from('')), /não suportado/);
 });
 
+test('@public vira data URI no artifact e caminho na raiz no build:pages', () => {
+  const read = (p) => { assert.equal(p, 'public/favicon.svg'); return Buffer.from('hi'); };
+  assert.equal(inlineAssets('href="@public:favicon.svg"', read), 'href="data:image/svg+xml;base64,aGk="');
+  assert.equal(inlineAssets('href="@public:favicon.svg"', read, { publicUrls: true }), 'href="/favicon.svg"');
+});
+
 test('o bundle é um script clássico válido, sem nomes duplicados entre arquivos', () => {
   const js = bundle();
   assert.ok(!/^\s*(import|export)\s/m.test(js), 'sobrou import/export');
