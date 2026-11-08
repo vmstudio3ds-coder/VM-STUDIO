@@ -123,7 +123,6 @@ let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=f
  keyL.color.copy(glow);keyL.intensity=1.2+I*2;keyL.position.set(2.6,camY+2.6,8);
  ray.setFromCamera(m2.set(mx,-my),cam);const o=ray.ray.origin,d=ray.ray.direction,k=-o.z/d.z;const ls=Math.min(1,.86*7.84*cam.aspect/5.6);if(logoPts)logoPts.scale.setScalar(ls);U.uK.value=Math.min(1,ls*ls*1.15);if(ptr)U.uM.value.set((o.x+d.x*k)/ls,(o.y+d.y*k)/ls);else U.uM.value.set(99,99);
  hv=null;if(onCv&&!open&&p<.995){const hit=ray.intersectObjects(PN.filter(n=>n.op>.5).map(n=>n.mesh))[0];if(hit)hv=hit.object.userData.n}
- let best=0,bd=1e9;
  const rev=clamp((p-.015)/.05);
  PN.forEach(n=>{const u=n.i-s,au=Math.abs(u),th=u*.8,fc=Math.cos(th);
   if(au<3&&!n.ld)load(n);
@@ -138,11 +137,10 @@ let ptr=false,cur=0,prev=0,mx=0,my=0,sx=0,sy=0,t=0,tw=0,hv=null,onCv=true,open=f
   g.rotation.set(-u*.02-sy*.03*n.hh,clamp(th*.6,-.55,.55)+sx*.05*n.hh,Math.sin(th)*.02);
   const wh=n.w/n.p.ar,mf=screenFit(cam.aspect,n.w,n.p.ar,SPY),gs=.44*(1+foc*.1)*(1-end*.3)*mf;g.scale.setScalar(gs);const tf=titleFit(cam.aspect,gs);n.tm.scale.setScalar(tf);n.tm.position.y=-wh/2-.12/gs-.63*tf;g.visible=n.op>.01;
   n.mat.uniforms.uOp.value=n.op;n.mat.uniforms.uH.value=n.hh;n.mesh.scale.setScalar(1+.035*n.hh);
-  n.tmat.opacity=n.op*(PORT?1:.7+.3*n.hh);n.tm.position.z=.5+.25*n.hh;
-  if(au<bd){bd=au;best=n.i}});
+  n.tmat.opacity=n.op*(PORT?1:.7+.3*n.hh);n.tm.position.z=.5+.25*n.hh;});
  R.render(scene,cam);
  cue.style.opacity=clamp(1-p*30);hud.style.opacity=p>.05&&p<.9?1:0;const acT=acvS.getBoundingClientRect().top,past=clamp((innerHeight*1.02-acT)/(innerHeight*.3));ecp.style.opacity=(clamp((end-.14)/.16)*(1-past)).toFixed(3);ecp.style.setProperty('--e',clamp((end-.14)/.26).toFixed(3));cv.style.opacity=(1-.85*end).toFixed(3);
- if(PN[best]){$('#hn').textContent='0'+(best+1);$('#ht').textContent=PN[best].p.t}$('#hs').textContent=LBL[Math.min(3,p*4|0)];$('#hp').textContent=Math.round(p*100)+'%';
+ $('#hs').textContent=LBL[Math.min(3,p*4|0)];$('#hp').textContent=Math.round(p*100)+'%';
  rx+=(cx-rx)*.5;ry+=(cy-ry)*.5;$('#cd').style.transform=`translate(${cx}px,${cy}px)`;$('#cr').style.transform=`translate(${rx}px,${ry}px)`})();
 
 /* ===== SNAP: cada gesto = uma janela; da última: título e depois o Acervo ===== */
