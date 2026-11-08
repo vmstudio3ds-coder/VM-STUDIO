@@ -137,7 +137,7 @@ test('filme: "uma tomada" — sem setas nem contador, com player próprio e curs
 test('contato: WhatsApp, e-mail e Instagram corretos', async () => {
   const { ctx, page } = await open();
   const hrefs = await page.locator('#contato .contacts a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  assert.deepEqual(hrefs, ['https://wa.me/5521985114060', 'mailto:vmstudio3ds@gmail.com', 'https://instagram.com/vm.studio3ds']);
+  assert.deepEqual(hrefs, ['https://wa.me/5521972965038', 'mailto:vmstudio3ds@gmail.com', 'https://instagram.com/vm.studio3d']);
   assert.match(await page.locator('#sobre p').textContent(), /cada projeto nasce da luz/);
   await ctx.close();
 });
