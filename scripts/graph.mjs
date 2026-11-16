@@ -207,7 +207,7 @@ for (const p of A) {
   link(node('cat:' + p.c, { label: p.c, kind: 'categoria' }), id, 'agrupa');
   link(`${pFile}::A`, id, 'lista');
   if (P.includes(p)) link(`${pFile}::P`, id, 'percurso 3D');
-  const gal = { GAL: 'miradouro', GAL2: 'espraiado', GAL3: 'porto-villa', GAL4: 'galeria-cafe' };
+  const gal = { GAL: 'miradouro', GAL2: 'espraiado', GAL3: 'porto-villa' };
   Object.entries(gal).forEach(([g, folder]) => {
     if (p.gal && p.gal[0] && p.gal[0].includes(`/gal/${folder}/`)) link(id, `src/data/galleries.js::${g}`, 'imagens');
   });
